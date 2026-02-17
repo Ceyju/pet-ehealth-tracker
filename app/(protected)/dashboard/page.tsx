@@ -23,7 +23,7 @@ interface Vaccination {
   pet_id: string
   vaccine_name: string
   next_due_date: string
-  pet: Pet
+  pet: Pet[]
 }
 
 export default function DashboardPage() {
@@ -54,19 +54,19 @@ export default function DashboardPage() {
         // Fetch upcoming vaccinations
         const today = new Date().toISOString().split('T')[0]
         const { data: vaccinationsData, error: vaccinationsError } = await supabase
-          .from('vaccinations')
-          .select(`
-            id,
-            pet_id,
-            vaccine_name,
-            next_due_date,
-            pet:pets(id, name, species, breed, photo_url)
-          `)
-          .eq('user_id', user.id)
-          .gte('next_due_date', today)
-          .lte('next_due_date', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-          .order('next_due_date', { ascending: true })
-          .limit(5)
+        .from('vaccinations')
+        .select(`
+          id,
+          pet_id,
+          vaccine_name,
+          next_due_date,
+          pet:pets(id, name, species, breed, photo_url)
+        `)
+        .in('pet_id', pets.map(p => p.id))
+        .gte('next_due_date', today)
+        .lte('next_due_date', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('next_due_date', { ascending: true })
+        .limit(5)
 
         if (vaccinationsError) throw vaccinationsError
         setUpcomingVaccinations(vaccinationsData || [])

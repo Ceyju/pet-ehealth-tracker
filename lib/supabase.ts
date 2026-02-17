@@ -13,15 +13,12 @@ export type Database = {
           id: string
           email: string
           full_name: string | null
+          avatar_url: string | null       
           phone: string | null
-          address: string | null
-          city: string | null
-          state: string | null
-          zip_code: string | null
           created_at: string
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
       }
       pets: {
@@ -29,11 +26,13 @@ export type Database = {
           id: string
           user_id: string
           name: string
-          species: string
+          species: 'dog' | 'cat' | 'rabbit' | 'hamster' | 'guinea_pig' | 'bird' | 'reptile' | 'other'
           breed: string | null
           date_of_birth: string | null
-          weight: number | null
           microchip_id: string | null
+          weight: number | null
+          medical_notes: string | null    
+          avatar_url: string | null       
           photo_url: string | null
           created_at: string
           updated_at: string
@@ -45,14 +44,16 @@ export type Database = {
         Row: {
           id: string
           pet_id: string
-          user_id: string
           vaccine_name: string
-          vaccination_date: string
-          expiry_date: string | null
-          next_due_date: string
+          vaccine_type: 'core' | 'non-core' | 'booster'
+          date_administered: string
+          next_due_date: string | null
+          status: 'pending' | 'upcoming' | 'overdue' | 'completed'
           clinic_name: string | null
+          vet_name: string | null                         
+          batch_number: string | null                     
+          certificate_url: string | null                  
           notes: string | null
-          is_verified: boolean
           created_at: string
           updated_at: string
         }
@@ -63,31 +64,26 @@ export type Database = {
         Row: {
           id: string
           pet_id: string
-          user_id: string
-          record_type: string
-          record_date: string
-          description: string
-          clinic_name: string | null
-          document_url: string | null
+          record_type: 'checkup' | 'lab_test' | 'surgery' | 'vaccination' | 'dental' | 'other'
+          date: string     
+          description: string | null
+          file_url: string | null
           created_at: string
-          updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['medical_records']['Row'], 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Database['public']['Tables']['medical_records']['Insert']>
+        Insert: Omit<Database['public']['Tables']['medical_records']['Row'], 'id' | 'created_at'>
+        Update: never
       }
       audit_logs: {
         Row: {
           id: string
+          pet_id: string
+          action: 'vaccination_added' | 'vaccination_updated' | 'vaccination_deleted' | 'record_added' | 'record_deleted' | 'pet_added' | 'pet_updated' | 'pet_deleted'  // ✅ typed enum
           user_id: string
-          action: string
-          table_name: string
-          record_id: string
-          old_values: Record<string, any> | null
-          new_values: Record<string, any> | null
+          details: Record<string, any> | null
           created_at: string
         }
         Insert: Omit<Database['public']['Tables']['audit_logs']['Row'], 'id' | 'created_at'>
-        Update: never
+        Update: never  // ✅ audit_logs is append-only
       }
     }
   }

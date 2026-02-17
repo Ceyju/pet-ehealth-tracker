@@ -14,7 +14,7 @@ interface PetFormProps {
   onSuccess?: () => void
 }
 
-const SPECIES_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Guinea Pig', 'Other']
+const SPECIES_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Other']
 
 export function PetForm({ petId, onSuccess }: PetFormProps) {
   const router = useRouter()
@@ -26,7 +26,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
 
   const [formData, setFormData] = useState({
     name: '',
-    species: 'Dog',
+    species: '',
     breed: '',
     date_of_birth: '',
     weight: '',
@@ -97,7 +97,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
     try {
       const petData = {
         name: formData.name,
-        species: formData.species,
+        species: formData.species.toLowerCase(),
         breed: formData.breed || null,
         date_of_birth: formData.date_of_birth || null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
