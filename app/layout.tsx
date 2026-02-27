@@ -8,7 +8,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Joy PetCenter - Pet Vaccination Tracker',
+  title: 'JoyCare - Pet Health Digital Tracker',
   description: 'Track your pet\'s vaccinations, medical records, and health appointments in one place.',
   generator: 'v0.app',
   icons: {
@@ -37,7 +37,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans antialiased">
+      <body
+        className="font-sans antialiased"
+        style={{
+          backgroundImage: "url('/src/bg.gif')",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
         <Providers>
           {children}
         </Providers>

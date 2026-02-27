@@ -37,9 +37,9 @@ export function Navigation() {
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-              P
+              J
             </div>
-            <span className="text-xl font-bold text-gray-900">PetCenter</span>
+            <span className="text-xl font-bold text-gray-900">JoyCare</span>
           </Link>
 
           {/* Desktop Navigation */}

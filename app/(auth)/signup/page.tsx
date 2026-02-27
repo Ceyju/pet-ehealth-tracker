@@ -46,7 +46,7 @@ export default function SignupPage() {
         <div className="p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-center text-gray-900">Create Account</h1>
-            <p className="text-center text-gray-600 mt-2">Join PetCenter today</p>
+            <p className="text-center text-gray-600 mt-2">Join JoyCare today</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

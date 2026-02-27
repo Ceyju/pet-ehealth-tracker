@@ -26,12 +26,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <div className="p-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-center text-gray-900">Joy PetCenter</h1>
-            <p className="text-center text-gray-600 mt-2">Track your pet's vaccinations</p>
+            <h1 className="text-3xl font-bold text-center text-gray-900">JoyCare</h1>
+            <p className="text-center text-gray-600 mt-2">Pet Health Digital Tracker</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
