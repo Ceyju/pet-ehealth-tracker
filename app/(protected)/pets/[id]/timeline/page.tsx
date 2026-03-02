@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -29,7 +29,8 @@ interface Vaccination {
   clinic_name: string | null
 }
 
-export default function TimelinePage({ params }: { params: { id: string } }) {
+export default function TimelinePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const router = useRouter()
   const { user } = useAuthStore()
   const [pet, setPet] = useState<Pet | null>(null)
@@ -48,7 +49,7 @@ export default function TimelinePage({ params }: { params: { id: string } }) {
         const { data: petData } = await supabase
           .from('pets')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', id)
           .eq('user_id', user.id)
           .single()
 
@@ -60,8 +61,7 @@ export default function TimelinePage({ params }: { params: { id: string } }) {
         const { data: vaccData } = await supabase
           .from('vaccinations')
           .select('id, vaccine_name, vaccination_date, next_due_date, clinic_name')
-          .eq('pet_id', params.id)
-          .eq('user_id', user.id)
+          .eq('pet_id', id)
           .order('vaccination_date', { ascending: false })
 
         setVaccinations(vaccData || [])
@@ -73,7 +73,7 @@ export default function TimelinePage({ params }: { params: { id: string } }) {
     }
 
     fetchData()
-  }, [params.id, user])
+  }, [id, user])
 
   const handleExportPDF = async () => {
     if (!pet) return

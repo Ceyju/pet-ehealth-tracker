@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
@@ -14,7 +14,8 @@ interface Pet {
   name: string
 }
 
-export default function QRCodePage({ params }: { params: { id: string } }) {
+export default function QRCodePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const router = useRouter()
   const { user } = useAuthStore()
   const [pet, setPet] = useState<Pet | null>(null)
@@ -28,7 +29,7 @@ export default function QRCodePage({ params }: { params: { id: string } }) {
         const { data } = await supabase
           .from('pets')
           .select('id, name')
-          .eq('id', params.id)
+          .eq('id', id)
           .eq('user_id', user.id)
           .single()
 
@@ -41,7 +42,7 @@ export default function QRCodePage({ params }: { params: { id: string } }) {
     }
 
     fetchPet()
-  }, [params.id, user])
+  }, [id, user])
 
   if (loading) {
     return (

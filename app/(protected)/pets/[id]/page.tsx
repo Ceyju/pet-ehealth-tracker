@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -21,15 +21,28 @@ interface Pet {
   photo_url: string | null
 }
 
+interface VaccinationPet {
+  id: string
+  name: string
+  species: string
+  breed: string | null
+  photo_url: string | null
+}
+
 interface Vaccination {
   id: string
   pet_id: string
   vaccine_name: string
   next_due_date: string
-  pet: Pet
+  pet: VaccinationPet | null
 }
 
-export default function PetDetailsPage({ params }: { params: { id: string } }) {
+type VaccinationRow = Omit<Vaccination, 'pet'> & {
+  pet: VaccinationPet[] | VaccinationPet | null
+}
+
+export default function PetDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const router = useRouter()
   const { user } = useAuthStore()
   const [pet, setPet] = useState<Pet | null>(null)
@@ -39,7 +52,7 @@ export default function PetDetailsPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return
+      if (!user?.id) return
 
       try {
         setLoading(true)
@@ -48,7 +61,7 @@ export default function PetDetailsPage({ params }: { params: { id: string } }) {
         const { data: petData, error: petError } = await supabase
           .from('pets')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', id)
           .eq('user_id', user.id)
           .single()
 
@@ -70,12 +83,16 @@ export default function PetDetailsPage({ params }: { params: { id: string } }) {
             next_due_date,
             pet:pets(id, name, species, breed, photo_url)
           `)
-          .eq('pet_id', params.id)
-          .eq('user_id', user.id)
+          .eq('pet_id', id)
           .order('next_due_date', { ascending: true })
 
         if (vaccError) throw vaccError
-        setVaccinations(vaccData || [])
+
+        const normalized: Vaccination[] = ((vaccData ?? []) as VaccinationRow[]).map((v) => ({
+          ...v,
+          pet: Array.isArray(v.pet) ? (v.pet[0] ?? null) : (v.pet ?? null),
+        }))
+        setVaccinations(normalized)
       } catch (err) {
         console.error('Error fetching pet details:', err)
         setError('Failed to load pet details')
@@ -85,7 +102,7 @@ export default function PetDetailsPage({ params }: { params: { id: string } }) {
     }
 
     fetchData()
-  }, [params.id, user])
+  }, [id, user])
 
   const calculateAge = (dateOfBirth: string | null) => {
     if (!dateOfBirth) return 'Unknown'

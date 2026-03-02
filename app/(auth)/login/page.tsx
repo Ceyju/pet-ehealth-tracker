@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { useAuthStore } from '@/lib/store'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, PawPrint } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -29,10 +29,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <div className="p-8">
-          <div className="mb-8">
+          <div className="mb-8 flex items-center justify-center gap-2">
+            <PawPrint className="w-5 h-5" aria-hidden />
             <h1 className="text-3xl font-bold text-center text-gray-900">JoyCare</h1>
-            <p className="text-center text-gray-600 mt-2">Pet Health Digital Tracker</p>
           </div>
+          <p className="text-center text-gray-600 mt-2">Pet Health Digital Tracker</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (

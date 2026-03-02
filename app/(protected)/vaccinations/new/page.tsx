@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PlusCircle, Edit2, ArrowLeft, Calendar, Heart, Syringe, QrCode, Clock } from 'lucide-react'
 import { VaccinationCountdown } from '@/components/dashboard/vaccination-countdown'
+import Image from 'next/image'
 
 interface Pet {
   id: string
@@ -34,7 +35,11 @@ interface Vaccination {
   pet_id: string
   vaccine_name: string
   next_due_date: string
-  pet: VaccinationPet[]
+  pet: VaccinationPet | null
+}
+
+type VaccinationRow = Omit<Vaccination, 'pet'> & {
+  pet: VaccinationPet[] | VaccinationPet | null
 }
 
 export default function PetDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,7 +53,7 @@ export default function PetDetailsPage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !id) return
+      if (!user?.id || !id) return
 
       try {
         setLoading(true)
@@ -81,7 +86,12 @@ export default function PetDetailsPage({ params }: { params: Promise<{ id: strin
           .order('next_due_date', { ascending: true })
 
         if (vaccError) throw vaccError
-        setVaccinations(vaccData || [])
+
+        const normalized: Vaccination[] = ((vaccData ?? []) as VaccinationRow[]).map((v) => ({
+          ...v,
+          pet: Array.isArray(v.pet) ? (v.pet[0] ?? null) : (v.pet ?? null),
+        }))
+        setVaccinations(normalized)
       } catch (err) {
         console.error('Error fetching pet details:', err)
         setError('Failed to load pet details')
@@ -154,7 +164,7 @@ export default function PetDetailsPage({ params }: { params: Promise<{ id: strin
           <Card className="overflow-hidden">
             {pet.photo_url && (
               <div className="h-64 bg-gray-200 overflow-hidden">
-                <img
+                <Image
                   src={pet.photo_url}
                   alt={pet.name}
                   className="w-full h-full object-cover"

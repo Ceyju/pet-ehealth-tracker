@@ -1,21 +1,10 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react'
-
-interface Vaccination {
-  id: string
-  pet_id: string
-  vaccine_name: string
-  next_due_date: string
-  pet: {        
-    id: string
-    name: string
-    species: string
-  }[]
-}
+import { Vaccination } from '@/types'
 
 export function VaccinationCountdown({ vaccination }: { vaccination: Vaccination }) {
-  const pet = vaccination.pet[0]
+  const pet = vaccination.pet
 
   const { daysUntil, status, badgeClass } = useMemo(() => {
     const today = new Date()

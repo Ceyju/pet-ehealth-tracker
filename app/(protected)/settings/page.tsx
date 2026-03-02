@@ -70,7 +70,12 @@ export default function SettingsPage() {
 
     try {
       // Delete all user data
-      await supabase.from('vaccinations').delete().eq('user_id', user.id)
+      // vaccinations has no user_id — delete via pet_id
+      const { data: userPets } = await supabase.from('pets').select('id').eq('user_id', user.id)
+      const petIds = (userPets ?? []).map((p) => p.id).filter(Boolean)
+      if (petIds.length > 0) {
+        await supabase.from('vaccinations').delete().in('pet_id', petIds)
+      }
       await supabase.from('pets').delete().eq('user_id', user.id)
       await supabase.from('medical_records').delete().eq('user_id', user.id)
       await supabase.from('profiles').delete().eq('id', user.id)

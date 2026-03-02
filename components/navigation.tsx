@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { Menu, X, LogOut, Settings, Home, PlusCircle, Syringe } from 'lucide-react'
+import { Menu, X, LogOut, Settings, Home, PlusCircle, Syringe, PawPrint } from 'lucide-react'
 
 export function Navigation() {
   const router = useRouter()
@@ -36,9 +36,7 @@ export function Navigation() {
         <div className="flex justify-between h-16">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-              J
-            </div>
+            <PawPrint className="w-5 h-5" aria-hidden />
             <span className="text-xl font-bold text-gray-900">JoyCare</span>
           </Link>
 
@@ -64,9 +62,7 @@ export function Navigation() {
                   variant="ghost"
                   className="flex items-center gap-2"
                 >
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">
-                    {user?.full_name?.charAt(0) || 'U'}
-                  </div>
+                  <PawPrint className="w-5 h-5" aria-hidden />
                   <span className="hidden sm:inline text-sm font-medium text-gray-700">
                     {user?.full_name}
                   </span>
