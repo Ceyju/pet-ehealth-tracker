@@ -48,7 +48,7 @@ export default function QRCodePage({ params }: { params: Promise<{ id: string }>
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7CA982]"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -90,9 +90,9 @@ export default function QRCodePage({ params }: { params: Promise<{ id: string }>
           )}
         </div>
 
-        <div className="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="font-semibold text-blue-900 mb-2">How to use this QR code:</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
+        <div className="mt-8 p-6 bg-[#E0EEC6] rounded-lg border border-[#7CA982]">
+          <h3 className="font-semibold text-[#243E36] mb-2">How to use this QR code:</h3>
+          <ul className="text-sm text-[#243E36] space-y-2">
             <li>• Download or share the QR code image</li>
             <li>• Others can scan it to view your pet's vaccination records</li>
             <li>• Perfect for vets, pet sitters, or travel documents</li>

@@ -15,7 +15,7 @@ export function VaccinationCountdown({ vaccination }: { vaccination: Vaccination
     const daysUntil = Math.ceil(timeDiff / (1000 * 3600 * 24))
 
     let status = 'upcoming'
-    let badgeClass = 'bg-blue-100 text-blue-700'
+    let badgeClass = 'bg-[#E0EEC6] text-[#243E36]'
 
     if (daysUntil < 0) {
       status = 'overdue'
@@ -52,7 +52,7 @@ export function VaccinationCountdown({ vaccination }: { vaccination: Vaccination
 
   return (
     <Link href={`/pets/${vaccination.pet_id}`}>
-      <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-gray-50 transition-colors cursor-pointer">
+      <div className="p-4 border border-gray-200 rounded-lg hover:border-[#7CA982] hover:bg-[#F1F7ED] transition-colors cursor-pointer">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="font-semibold text-gray-900">{vaccination.vaccine_name}</p>

@@ -31,7 +31,7 @@ export function Navigation() {
   ]
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
+    <nav className="fixed top-0 left-0 right-0 bg-[#F1F7ED] border-b border-[#E0EEC6] shadow-sm z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
@@ -46,7 +46,7 @@ export function Navigation() {
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-2 text-[#243E36] hover:text-[#7CA982] transition-colors"
               >
                 <Icon className="w-4 h-4" />
                 {label}
@@ -107,7 +107,7 @@ export function Navigation() {
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="flex items-center gap-2 px-4 py-2 text-[#243E36] hover:bg-[#E0EEC6] rounded-lg"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <Icon className="w-4 h-4" />

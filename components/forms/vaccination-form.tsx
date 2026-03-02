@@ -172,18 +172,18 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
       {petSpecies === 'cat' && !vaccinationId && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
-            <Syringe className="w-4 h-4 text-blue-600" />
-            <h2 className="text-sm font-semibold text-blue-700 uppercase tracking-wide">
+            <Syringe className="w-4 h-4 text-[#7CA982]" />
+            <h2 className="text-sm font-semibold text-[#243E36] uppercase tracking-wide">
               Recommended Cat Vaccination Schedule
             </h2>
           </div>
-          <div className="border border-blue-100 rounded-xl overflow-hidden">
+          <div className="border border-[#E0EEC6] rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-blue-50">
-                  <th className="text-left px-4 py-2 font-medium text-blue-800">Age</th>
-                  <th className="text-left px-4 py-2 font-medium text-blue-800">Vaccine</th>
-                  <th className="text-left px-4 py-2 font-medium text-blue-800 hidden sm:table-cell">Notes</th>
+                <tr className="bg-[#E0EEC6]">
+                  <th className="text-left px-4 py-2 font-medium text-[#243E36]">Age</th>
+                  <th className="text-left px-4 py-2 font-medium text-[#243E36]">Vaccine</th>
+                  <th className="text-left px-4 py-2 font-medium text-[#243E36] hidden sm:table-cell">Notes</th>
                   <th className="px-4 py-2" />
                 </tr>
               </thead>
@@ -191,7 +191,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
                 {CAT_SCHEDULE.map((row, i) => (
                   <tr
                     key={i}
-                    className={i % 2 === 0 ? 'bg-white' : 'bg-blue-50/40'}
+                    className={i % 2 === 0 ? 'bg-white' : 'bg-[#F1F7ED]'}
                   >
                     <td className="px-4 py-2 font-medium text-gray-700 whitespace-nowrap">{row.age}</td>
                     <td className="px-4 py-2 text-gray-900">{row.vaccine}</td>
@@ -200,7 +200,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
                       <button
                         type="button"
                         onClick={() => prefillVaccine(row.vaccine)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium underline-offset-2 hover:underline"
+                        className="text-xs text-[#7CA982] hover:text-[#243E36] font-medium underline-offset-2 hover:underline"
                       >
                         Use
                       </button>
@@ -242,7 +242,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
               }
             }}
             required={!isCustomVaccine}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent bg-white"
             disabled={loading}
           >
             <option value="">Select a vaccine</option>
@@ -339,7 +339,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
             placeholder="Any additional information about the vaccination"
             disabled={loading}
             rows={4}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent"
           />
         </div>
 
@@ -347,7 +347,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
         <div className="flex gap-4 pt-6">
           <Button
             type="submit"
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex-1 bg-[#243E36] hover:bg-[#1a2e28] text-white"
             disabled={loading}
           >
             {loading ? (

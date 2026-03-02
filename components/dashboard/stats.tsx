@@ -15,8 +15,8 @@ export function DashboardStats({ petsCount, vaccinationsCount }: DashboardStatsP
             <p className="text-gray-600 text-sm font-medium">Total Pets</p>
             <p className="text-3xl font-bold text-gray-900 mt-2">{petsCount}</p>
           </div>
-          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <Heart className="w-6 h-6 text-blue-600" />
+          <div className="w-12 h-12 bg-[#E0EEC6] rounded-lg flex items-center justify-center">
+            <Heart className="w-6 h-6 text-[#243E36]" />
           </div>
         </div>
       </Card>
@@ -27,8 +27,8 @@ export function DashboardStats({ petsCount, vaccinationsCount }: DashboardStatsP
             <p className="text-gray-600 text-sm font-medium">Upcoming Vaccinations</p>
             <p className="text-3xl font-bold text-gray-900 mt-2">{vaccinationsCount}</p>
           </div>
-          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <Syringe className="w-6 h-6 text-green-600" />
+          <div className="w-12 h-12 bg-[#E0EEC6] rounded-lg flex items-center justify-center">
+            <Syringe className="w-6 h-6 text-[#7CA982]" />
           </div>
         </div>
       </Card>

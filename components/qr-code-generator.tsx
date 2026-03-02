@@ -63,7 +63,7 @@ export function QRCodeGenerator({ petId, petName, userId }: QRCodeGeneratorProps
     <div className="flex flex-col items-center gap-6">
       {loading && (
         <div className="flex items-center justify-center w-80 h-80 bg-gray-100 rounded-lg">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#7CA982]" />
         </div>
       )}
 
@@ -81,7 +81,7 @@ export function QRCodeGenerator({ petId, petName, userId }: QRCodeGeneratorProps
           <div className="flex gap-3">
             <Button
               onClick={handleDownload}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-[#243E36] hover:bg-[#1a2e28] text-white"
             >
               <Download className="w-4 h-4 mr-2" />
               Download

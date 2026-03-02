@@ -107,7 +107,7 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7CA982]"></div>
           <p className="mt-4 text-gray-600">Loading timeline...</p>
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
           <Button
             onClick={handleExportPDF}
             disabled={exporting}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-[#7CA982] hover:bg-[#243E36] text-white"
           >
             <Download className="w-4 h-4 mr-2" />
             {exporting ? 'Exporting...' : 'Export PDF'}
@@ -155,7 +155,7 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
           <div className="text-center py-12">
             <p className="text-gray-600">No vaccination records yet</p>
             <Link href={`/pets/${pet.id}/vaccinations/new`}>
-              <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="mt-4 bg-[#243E36] hover:bg-[#1a2e28] text-white">
                 Add Vaccination
               </Button>
             </Link>

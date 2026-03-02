@@ -143,7 +143,7 @@ export default function DashboardPage() {
     return (
       <div className="flex items-center justify-center min-h-100">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-orange-500 mx-auto" />
+          <Loader2 className="w-10 h-10 animate-spin text-[#7CA982] mx-auto" />
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">No pets registered yet.</p>
                 <Link href="/pets/new">
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white">Add your first pet</Button>
+                  <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">Add your first pet</Button>
                 </Link>
               </div>
             ) : (

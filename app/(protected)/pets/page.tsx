@@ -72,9 +72,9 @@ export default function PetsPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center justify-center min-h-100">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7CA982]"></div>
             <p className="mt-4 text-gray-600">Loading pets...</p>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function PetsPage() {
           <p className="text-gray-600 mt-2">Manage all your pets in one place</p>
         </div>
         <Link href="/pets/new">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">
             <PlusCircle className="w-4 h-4 mr-2" />
             Add Pet
           </Button>
@@ -110,7 +110,7 @@ export default function PetsPage() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No pets yet</h3>
             <p className="text-gray-600 mb-6">Start tracking your pet's vaccinations by adding your first pet</p>
             <Link href="/pets/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Add Your First Pet
               </Button>

@@ -106,7 +106,7 @@ export default function SettingsPage() {
       )}
 
       {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm">
+        <div className="mb-6 p-4 bg-[#E0EEC6] border border-[#7CA982] rounded-lg text-[#243E36] text-sm">
           {success}
         </div>
       )}
@@ -211,7 +211,7 @@ export default function SettingsPage() {
 
           <Button
             onClick={handleSave}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-[#243E36] hover:bg-[#1a2e28] text-white"
             disabled={saving}
           >
             {saving ? (

@@ -161,7 +161,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
               />
             )}
             <div className="flex-1">
-              <label className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
+              <label className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#7CA982] transition-colors">
                 <Upload className="w-5 h-5 mr-2 text-gray-600" />
                 <span className="text-sm text-gray-600">
                   {uploadingPhoto ? 'Uploading...' : 'Click to upload'}
@@ -203,7 +203,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
               id="species"
               value={formData.species}
               onChange={(e) => setFormData({ ...formData, species: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent"
               disabled={loading}
             >
               {SPECIES_OPTIONS.map((species) => (
@@ -275,7 +275,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
         <div className="flex gap-4 pt-6">
           <Button
             type="submit"
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex-1 bg-[#243E36] hover:bg-[#1a2e28] text-white"
             disabled={loading}
           >
             {loading ? (

@@ -41,7 +41,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#F1F7ED] p-4">
       <Card className="w-full max-w-md">
         <div className="p-8">
           <div className="mb-8">
@@ -126,7 +126,7 @@ export default function SignupPage() {
 
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium"
+              className="w-full bg-[#243E36] hover:bg-[#1a2e28] text-white py-2 rounded-lg font-medium"
               disabled={loading}
             >
               {loading ? (
@@ -142,7 +142,7 @@ export default function SignupPage() {
 
           <p className="text-center text-gray-600 text-sm mt-6">
             Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href="/login" className="text-[#7CA982] hover:text-[#243E36] font-medium">
               Sign in
             </Link>
           </p>
