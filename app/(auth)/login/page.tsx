@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { useAuthStore } from '@/lib/store'
 import { AlertCircle, Loader2, PawPrint } from 'lucide-react'
+import ShapeGrid from '@/components/ShapeGrid'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,8 +27,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center p-4 bg-[#F1F7ED]">
+      <div className="absolute inset-0">
+        <ShapeGrid
+          speed={0.1}
+          squareSize={100}
+          direction="diagonal"
+          borderColor="#0c8649"
+          hoverFillColor="#4a9672"
+          shape="triangle"
+          hoverTrailAmount={0}
+        />
+      </div>
+
+      <Card className="relative z-10 w-full max-w-md">
         <div className="p-8">
           <div className="mb-8 flex items-center justify-center gap-2">
             <PawPrint className="w-5 h-5" aria-hidden />

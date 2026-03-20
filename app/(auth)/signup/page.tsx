@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { useAuthStore } from '@/lib/store'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import ShapeGrid from '@/components/ShapeGrid'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -41,8 +42,20 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F1F7ED] p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center p-4 bg-[#F1F7ED]">
+      <div className="absolute inset-0">
+        <ShapeGrid
+          speed={0.1}
+          squareSize={100}
+          direction="diagonal"
+          borderColor="#0c8649"
+          hoverFillColor="#4a9672"
+          shape="triangle"
+          hoverTrailAmount={0}
+        />
+      </div>
+
+      <Card className="relative z-10 w-full max-w-md">
         <div className="p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-center text-gray-900">Create Account</h1>

@@ -62,7 +62,7 @@ export default function PetDetailsPage({ params }: { params: Promise<{ id: strin
           .from('pets')
           .select('*')
           .eq('id', id)
-          .eq('user_id', user.id)
+          .eq('pet_id', user.id)
           .single()
 
         if (petError) throw petError

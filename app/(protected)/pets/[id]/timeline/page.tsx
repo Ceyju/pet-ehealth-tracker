@@ -24,9 +24,15 @@ interface Pet {
 interface Vaccination {
   id: string
   vaccine_name: string
-  vaccination_date: string
+  vaccine_type: string | null
+  date_administered: string
+  expiry_date: string | null
   next_due_date: string
   clinic_name: string | null
+  vet_name: string | null
+  batch_number: string | null
+  notes: string | null
+  is_verified: boolean
 }
 
 export default function TimelinePage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,7 +51,6 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
       try {
         setLoading(true)
 
-        // Fetch pet
         const { data: petData } = await supabase
           .from('pets')
           .select('*')
@@ -53,18 +58,28 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
           .eq('user_id', user.id)
           .single()
 
-        if (petData) {
-          setPet(petData)
-        }
+        if (petData) setPet(petData)
 
-        // Fetch vaccinations
-        const { data: vaccData } = await supabase
+        const { data: vaccData, error: vaccError } = await supabase
           .from('vaccinations')
-          .select('id, vaccine_name, vaccination_date, next_due_date, clinic_name')
+          .select(`
+            id,
+            vaccine_name,
+            vaccine_type,
+            date_administered,
+            expiry_date,
+            next_due_date,
+            clinic_name,
+            vet_name,
+            batch_number,
+            notes,
+            is_verified
+          `)
           .eq('pet_id', id)
-          .order('vaccination_date', { ascending: false })
+          .order('date_administered', { ascending: false })
 
-        setVaccinations(vaccData || [])
+        if (vaccError) throw vaccError
+        setVaccinations(vaccData ?? [])
       } catch (err) {
         console.error('Error fetching data:', err)
       } finally {
@@ -77,23 +92,28 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
 
   const handleExportPDF = async () => {
     if (!pet) return
-
     setExporting(true)
     try {
       await exportPetHealthRecordsPDF(
         {
           name: pet.name,
           species: pet.species,
-          breed: pet.breed || undefined,
-          dateOfBirth: pet.date_of_birth || undefined,
-          weight: pet.weight || undefined,
-          microchipId: pet.microchip_id || undefined,
+          breed: pet.breed ?? undefined,
+          dateOfBirth: pet.date_of_birth ?? undefined,
+          weight: pet.weight ?? undefined,
+          microchipId: pet.microchip_id ?? undefined,
         },
         vaccinations.map((v) => ({
           vaccineName: v.vaccine_name,
-          vaccinationDate: v.vaccination_date,
+          vaccineType: v.vaccine_type ?? undefined,
+          dateAdministered: v.date_administered,
+          expiryDate: v.expiry_date ?? undefined,
           nextDueDate: v.next_due_date,
-          clinicName: v.clinic_name || undefined,
+          clinicName: v.clinic_name ?? undefined,
+          vetName: v.vet_name ?? undefined,
+          batchNumber: v.batch_number ?? undefined,
+          notes: v.notes ?? undefined,
+          isVerified: v.is_verified,
         }))
       )
     } catch (err) {
@@ -126,24 +146,20 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Button
-        variant="outline"
-        onClick={() => router.back()}
-        className="mb-6"
-      >
+      <Button variant="outline" onClick={() => router.back()} className="mb-6">
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back
       </Button>
 
       <Card className="p-8">
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex justify-between items-start mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Vaccination Timeline</h1>
             <p className="text-gray-600 mt-2">{pet.name}'s health history</p>
           </div>
           <Button
             onClick={handleExportPDF}
-            disabled={exporting}
+            disabled={exporting || vaccinations.length === 0}
             className="bg-[#7CA982] hover:bg-[#243E36] text-white"
           >
             <Download className="w-4 h-4 mr-2" />
@@ -164,36 +180,6 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
           <VaccinationTimeline vaccinations={vaccinations} />
         )}
       </Card>
-
-      {vaccinations.length > 0 && (
-        <Card className="p-6 mt-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Summary</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-gray-600 text-sm">Total Vaccinations</p>
-              <p className="text-3xl font-bold text-gray-900">{vaccinations.length}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">First Vaccination</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {new Date(vaccinations[vaccinations.length - 1].vaccination_date).toLocaleDateString(
-                  'en-US',
-                  { year: 'numeric', month: 'short', day: 'numeric' }
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Latest Vaccination</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {new Date(vaccinations[0].vaccination_date).toLocaleDateString(
-                  'en-US',
-                  { year: 'numeric', month: 'short', day: 'numeric' }
-                )}
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }

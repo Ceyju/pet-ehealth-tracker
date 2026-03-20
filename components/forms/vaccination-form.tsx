@@ -1,13 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { AlertCircle, Loader2, Syringe } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { AlertCircle, Loader2, Syringe, CalendarIcon } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 interface VaccinationFormProps {
   petId: string
@@ -30,13 +33,83 @@ const COMMON_VACCINES = [
 ]
 
 const CAT_SCHEDULE = [
-  { age: '6–8 weeks',          vaccine: 'FVRCP',               note: 'Feline viral rhinotracheitis, calicivirus, panleukopenia' },
-  { age: '10–12 weeks',        vaccine: 'FVRCP booster',       note: 'Second dose' },
-  { age: '12–16 weeks',        vaccine: 'Rabies',              note: 'First rabies vaccine' },
-  { age: '14–16 weeks',        vaccine: 'FVRCP final booster', note: 'Third and final kitten dose' },
-  { age: 'Annually thereafter',vaccine: 'FVRCP + Rabies',      note: 'Annual boosters for both' },
+  { age: '6–8 weeks',           vaccine: 'FVRCP',               note: 'Feline viral rhinotracheitis, calicivirus, panleukopenia' },
+  { age: '10–12 weeks',         vaccine: 'FVRCP booster',       note: 'Second dose' },
+  { age: '12–16 weeks',         vaccine: 'Rabies',              note: 'First rabies vaccine' },
+  { age: '14–16 weeks',         vaccine: 'FVRCP final booster', note: 'Third and final kitten dose' },
+  { age: 'Annually thereafter', vaccine: 'FVRCP + Rabies',      note: 'Annual boosters for both' },
 ]
 
+type VaccineType = 'core' | 'non-core' | 'booster'
+
+// ── reusable calendar popover field ───────────────────────────────────────────
+function DatePickerField({
+  id,
+  label,
+  required,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string
+  label: string
+  required?: boolean
+  value: string        // "YYYY-MM-DD" or ""
+  onChange: (val: string) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selected = value ? parseISO(value) : undefined
+
+  return (
+    <div ref={ref} className="relative">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-2">
+        {label} {required && '*'}
+      </label>
+      <button
+        id={id}
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'w-full flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm',
+          'focus:outline-none focus:ring-2 focus:ring-[#7CA982] focus:border-transparent',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          !selected && 'text-gray-400'
+        )}
+      >
+        <CalendarIcon className="w-4 h-4 shrink-0 text-gray-400" />
+        {selected ? format(selected, 'PPP') : 'Pick a date'}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg">
+          <Calendar
+            mode="single"
+            selected={selected}
+            onSelect={(date) => {
+              onChange(date ? format(date, 'yyyy-MM-dd') : '')
+              setOpen(false)
+            }}
+            initialFocus
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── main component ─────────────────────────────────────────────────────────────
 export function VaccinationForm({ petId, vaccinationId, onSuccess }: VaccinationFormProps) {
   const router = useRouter()
   const { user } = useAuthStore()
@@ -49,10 +122,13 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
   const [formData, setFormData] = useState({
     vaccine_name: '',
-    vaccination_date: new Date().toISOString().split('T')[0],
+    vaccine_type: 'core' as VaccineType,
+    date_administered: format(new Date(), 'yyyy-MM-dd'),
     expiry_date: '',
-    next_due_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    next_due_date: format(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
     clinic_name: '',
+    vet_name: '',
+    batch_number: '',
     notes: '',
     is_verified: false,
   })
@@ -61,14 +137,12 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
     setIsCustomVaccine(false)
     setDropdownValue(name)
     setFormData((prev) => ({ ...prev, vaccine_name: name }))
-    // Scroll to form
     document.getElementById('vaccine-form-section')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
     if (!user) return
 
-    // Fetch pet name + species
     const fetchPet = async () => {
       const { data } = await supabase
         .from('pets')
@@ -83,7 +157,6 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
     fetchPet()
 
-    // Fetch existing vaccination if editing
     if (vaccinationId) {
       const fetchVaccination = async () => {
         const { data } = await supabase
@@ -98,12 +171,15 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
           setIsCustomVaccine(!isKnown)
           setFormData({
             vaccine_name: data.vaccine_name,
-            vaccination_date: data.vaccination_date,
-            expiry_date: data.expiry_date || '',
-            next_due_date: data.next_due_date,
-            clinic_name: data.clinic_name || '',
-            notes: data.notes || '',
-            is_verified: data.is_verified,
+            vaccine_type: data.vaccine_type ?? 'core',
+            date_administered: data.date_administered,
+            expiry_date: data.expiry_date ?? '',
+            next_due_date: data.next_due_date ?? '',
+            clinic_name: data.clinic_name ?? '',
+            vet_name: data.vet_name ?? '',
+            batch_number: data.batch_number ?? '',
+            notes: data.notes ?? '',
+            is_verified: data.is_verified ?? false,
           })
         }
       }
@@ -122,27 +198,26 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
     try {
       const vaccinationData = {
         pet_id: petId,
-        user_id: user.id,
         vaccine_name: formData.vaccine_name,
-        vaccination_date: formData.vaccination_date,
+        vaccine_type: formData.vaccine_type,
+        date_administered: formData.date_administered,
         expiry_date: formData.expiry_date || null,
-        next_due_date: formData.next_due_date,
+        next_due_date: formData.next_due_date || null,
         clinic_name: formData.clinic_name || null,
+        vet_name: formData.vet_name || null,
+        batch_number: formData.batch_number || null,
         notes: formData.notes || null,
         is_verified: formData.is_verified,
       }
 
       if (vaccinationId) {
-        // Update existing
         const { error: updateError } = await supabase
           .from('vaccinations')
           .update(vaccinationData)
           .eq('id', vaccinationId)
-          .eq('user_id', user.id)
 
         if (updateError) throw updateError
       } else {
-        // Create new
         const { error: insertError } = await supabase
           .from('vaccinations')
           .insert([vaccinationData])
@@ -189,10 +264,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
               </thead>
               <tbody>
                 {CAT_SCHEDULE.map((row, i) => (
-                  <tr
-                    key={i}
-                    className={i % 2 === 0 ? 'bg-white' : 'bg-[#F1F7ED]'}
-                  >
+                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F1F7ED]'}>
                     <td className="px-4 py-2 font-medium text-gray-700 whitespace-nowrap">{row.age}</td>
                     <td className="px-4 py-2 text-gray-900">{row.vaccine}</td>
                     <td className="px-4 py-2 text-gray-500 hidden sm:table-cell">{row.note}</td>
@@ -225,7 +297,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
         {/* Vaccine Name */}
         <div>
           <label htmlFor="vaccine" className="block text-sm font-medium text-gray-700 mb-2">
-            Vaccine Type *
+            Vaccine Name *
           </label>
           <select
             id="vaccine"
@@ -247,9 +319,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
           >
             <option value="">Select a vaccine</option>
             {COMMON_VACCINES.map((vaccine) => (
-              <option key={vaccine} value={vaccine}>
-                {vaccine}
-              </option>
+              <option key={vaccine} value={vaccine}>{vaccine}</option>
             ))}
           </select>
 
@@ -267,62 +337,95 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
           )}
         </div>
 
-        {/* Dates */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="vaccDate" className="block text-sm font-medium text-gray-700 mb-2">
-              Vaccination Date *
-            </label>
-            <Input
-              id="vaccDate"
-              type="date"
-              value={formData.vaccination_date}
-              onChange={(e) => setFormData((prev) => ({ ...prev, vaccination_date: e.target.value }))}
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-2">
-              Expiry Date
-            </label>
-            <Input
-              id="expiryDate"
-              type="date"
-              value={formData.expiry_date}
-              onChange={(e) => setFormData((prev) => ({ ...prev, expiry_date: e.target.value }))}
-              disabled={loading}
-            />
-          </div>
+        {/* Vaccine Type */}
+        <div>
+          <label htmlFor="vaccineType" className="block text-sm font-medium text-gray-700 mb-2">
+            Vaccine Type *
+          </label>
+          <select
+            id="vaccineType"
+            value={formData.vaccine_type}
+            onChange={(e) => setFormData((prev) => ({ ...prev, vaccine_type: e.target.value as VaccineType }))}
+            required
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent bg-white"
+            disabled={loading}
+          >
+            <option value="core">Core</option>
+            <option value="non-core">Non-core</option>
+            <option value="booster">Booster</option>
+          </select>
         </div>
 
-        {/* Next Due Date */}
-        <div>
-          <label htmlFor="nextDue" className="block text-sm font-medium text-gray-700 mb-2">
-            Next Due Date *
-          </label>
-          <Input
-            id="nextDue"
-            type="date"
-            value={formData.next_due_date}
-            onChange={(e) => setFormData((prev) => ({ ...prev, next_due_date: e.target.value }))}
+        {/* Dates — all three use Calendar */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <DatePickerField
+            id="dateAdministered"
+            label="Date Administered"
             required
+            value={formData.date_administered}
+            onChange={(val) => setFormData((prev) => ({ ...prev, date_administered: val }))}
+            disabled={loading}
+          />
+
+          <DatePickerField
+            id="expiryDate"
+            label="Expiry Date"
+            value={formData.expiry_date}
+            onChange={(val) => setFormData((prev) => ({ ...prev, expiry_date: val }))}
+            disabled={loading}
+          />
+
+          <DatePickerField
+            id="nextDue"
+            label="Next Due Date"
+            value={formData.next_due_date}
+            onChange={(val) => setFormData((prev) => ({ ...prev, next_due_date: val }))}
             disabled={loading}
           />
         </div>
 
-        {/* Clinic Details */}
+        {/* Clinic & Vet */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="clinic" className="block text-sm font-medium text-gray-700 mb-2">
+              Clinic Name
+            </label>
+            <Input
+              id="clinic"
+              type="text"
+              value={formData.clinic_name}
+              onChange={(e) => setFormData((prev) => ({ ...prev, clinic_name: e.target.value }))}
+              placeholder="e.g., Happy Paws Veterinary"
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="vetName" className="block text-sm font-medium text-gray-700 mb-2">
+              Veterinarian Name
+            </label>
+            <Input
+              id="vetName"
+              type="text"
+              value={formData.vet_name}
+              onChange={(e) => setFormData((prev) => ({ ...prev, vet_name: e.target.value }))}
+              placeholder="e.g., Dr. Santos"
+              disabled={loading}
+            />
+          </div>
+        </div>
+
+        {/* Batch Number */}
         <div>
-          <label htmlFor="clinic" className="block text-sm font-medium text-gray-700 mb-2">
-            Clinic Name
+          <label htmlFor="batchNumber" className="block text-sm font-medium text-gray-700 mb-2">
+            Batch / Lot Number
           </label>
           <Input
-            id="clinic"
+            id="batchNumber"
             type="text"
-            value={formData.clinic_name}
-            onChange={(e) => setFormData((prev) => ({ ...prev, clinic_name: e.target.value }))}
-            placeholder="e.g., Happy Paws Veterinary"
+            value={formData.batch_number}
+            onChange={(e) => setFormData((prev) => ({ ...prev, batch_number: e.target.value }))}
+            placeholder="e.g., A1234B"
             disabled={loading}
           />
         </div>
@@ -341,6 +444,21 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
             rows={4}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent"
           />
+        </div>
+
+        {/* Verified */}
+        <div className="flex items-center gap-3">
+          <input
+            id="isVerified"
+            type="checkbox"
+            checked={formData.is_verified}
+            onChange={(e) => setFormData((prev) => ({ ...prev, is_verified: e.target.checked }))}
+            disabled={loading}
+            className="w-4 h-4 rounded border-gray-300 text-[#243E36] focus:ring-[#7CA982]"
+          />
+          <label htmlFor="isVerified" className="text-sm font-medium text-gray-700">
+            Verified by veterinarian
+          </label>
         </div>
 
         {/* Buttons */}

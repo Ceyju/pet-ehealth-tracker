@@ -7,7 +7,11 @@ import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { AlertCircle, Loader2, Upload } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { AlertCircle, CalendarIcon, Loader2, Upload } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 interface PetFormProps {
   petId?: string
@@ -23,6 +27,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [dobOpen, setDobOpen] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -107,7 +112,6 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
       }
 
       if (petId) {
-        // Update existing pet
         const { error: updateError } = await supabase
           .from('pets')
           .update(petData)
@@ -116,7 +120,6 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
 
         if (updateError) throw updateError
       } else {
-        // Create new pet
         const { error: insertError } = await supabase
           .from('pets')
           .insert([petData])
@@ -132,6 +135,8 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
       setLoading(false)
     }
   }
+
+  const selectedDob = formData.date_of_birth ? parseISO(formData.date_of_birth) : undefined
 
   return (
     <Card className="p-8 max-w-2xl mx-auto">
@@ -152,29 +157,27 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Pet Photo
           </label>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             {photoUrl && (
               <img
                 src={photoUrl}
                 alt="Pet"
-                className="w-24 h-24 rounded-lg object-cover"
+                className="w-50 h-50 rounded-lg object-cover border-2 border-gray-200"
               />
             )}
-            <div className="flex-1">
-              <label className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#7CA982] transition-colors">
-                <Upload className="w-5 h-5 mr-2 text-gray-600" />
-                <span className="text-sm text-gray-600">
-                  {uploadingPhoto ? 'Uploading...' : 'Click to upload'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  disabled={uploadingPhoto}
-                  className="hidden"
-                />
-              </label>
-            </div>
+            <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#7CA982] transition-colors">
+              <Upload className="w-5 h-5 mr-2 text-gray-600" />
+              <span className="text-sm text-gray-600">
+                {uploadingPhoto ? 'Uploading...' : photoUrl ? 'Edit photo' : 'Click to upload'}
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={uploadingPhoto}
+                className="hidden"
+              />
+            </label>
           </div>
         </div>
 
@@ -229,16 +232,45 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           </div>
 
           <div>
-            <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Date of Birth
             </label>
-            <Input
-              id="dob"
-              type="date"
-              value={formData.date_of_birth}
-              onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-              disabled={loading}
-            />
+            <Popover open={dobOpen} onOpenChange={setDobOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  className={cn(
+                    'w-full justify-start text-left font-normal',
+                    !formData.date_of_birth && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.date_of_birth
+                    ? format(parseISO(formData.date_of_birth), 'PPP')
+                    : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  captionLayout="dropdown"
+                  selected={selectedDob}
+                  onSelect={(date) => {
+                    setFormData({
+                      ...formData,
+                      date_of_birth: date ? format(date, 'yyyy-MM-dd') : '',
+                    })
+                    setDobOpen(false)
+                  }}
+                  fromYear={1990}
+                  toYear={new Date().getFullYear()}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div>
