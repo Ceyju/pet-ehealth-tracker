@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
@@ -9,8 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { AlertCircle, CalendarIcon, Loader2, Upload } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 interface PetFormProps {
@@ -18,7 +21,7 @@ interface PetFormProps {
   onSuccess?: () => void
 }
 
-const SPECIES_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Other']
+const SPECIES_OPTIONS = ['Dog', 'Cat']
 
 export function PetForm({ petId, onSuccess }: PetFormProps) {
   const router = useRouter()
@@ -28,6 +31,11 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [dobOpen, setDobOpen] = useState(false)
+  const [dewormingOpen, setDewormingOpen] = useState(false)
+  const [cropOpen, setCropOpen] = useState(false)
+  const [rawImageUrl, setRawImageUrl] = useState<string | null>(null)
+  const croppieRef = useRef<HTMLDivElement>(null)
+  const croppieInstance = useRef<any>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,6 +44,9 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
     date_of_birth: '',
     weight: '',
     microchip_id: '',
+    is_dewormed: false,
+    deworming_date: '',
+    deworming_location: '',
   })
 
   useEffect(() => {
@@ -51,11 +62,16 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
         if (data) {
           setFormData({
             name: data.name,
-            species: data.species,
+            species: data.species
+              ? data.species.charAt(0).toUpperCase() + data.species.slice(1)
+              : '',
             breed: data.breed || '',
             date_of_birth: data.date_of_birth || '',
             weight: data.weight ? String(data.weight) : '',
             microchip_id: data.microchip_id || '',
+            is_dewormed: data.is_dewormed || false,
+            deworming_date: data.deworming_date || '',
+            deworming_location: data.deworming_location || '',
           })
           setPhotoUrl(data.photo_url)
         }
@@ -65,25 +81,66 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
     }
   }, [petId, user])
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user) return
+  useEffect(() => {
+    if (!cropOpen) return
+
+    // Wait for the Dialog to mount its DOM before init
+    const timer = setTimeout(async () => {
+      if (!croppieRef.current || !rawImageUrl) return
+      const CroppieLib = (await import('croppie')).default
+      if (croppieInstance.current) {
+        croppieInstance.current.destroy()
+      }
+      croppieInstance.current = new CroppieLib(croppieRef.current, {
+        viewport: { width: 200, height: 200, type: 'square' },
+        boundary: { width: 280, height: 280 },
+        showZoomer: true,
+        enableOrientation: true,
+      })
+      croppieInstance.current.bind({ url: rawImageUrl })
+    }, 150)
+
+    return () => {
+      clearTimeout(timer)
+      if (croppieInstance.current) {
+        croppieInstance.current.destroy()
+        croppieInstance.current = null
+      }
+    }
+  }, [cropOpen, rawImageUrl])
+
+  // Step 1: user picks a file → open crop modal
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const url = URL.createObjectURL(file)
+    setRawImageUrl(url)
+    setCropOpen(true)
+    e.target.value = '' // allow re-selecting same file
+  }
 
+  // Step 2: user confirms crop → upload blob to Supabase
+  const handleCropConfirm = async () => {
+    if (!croppieInstance.current || !user) return
     setUploadingPhoto(true)
+    setCropOpen(false)
     try {
-      const fileName = `${user.id}/${Date.now()}-${file.name}`
-      const { error: uploadError, data } = await supabase.storage
+      const blob: Blob = await croppieInstance.current.result({
+        type: 'blob',
+        size: { width: 400, height: 400 },
+        format: 'jpeg',
+        quality: 0.9,
+      })
+      const fileName = `${user.id}/${Date.now()}-cropped.jpg`
+      const { error: uploadError } = await supabase.storage
         .from('pet-photos')
-        .upload(fileName, file, { upsert: true })
-
+        .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' })
       if (uploadError) throw uploadError
-
       const { data: urlData } = supabase.storage
         .from('pet-photos')
         .getPublicUrl(fileName)
-
       setPhotoUrl(urlData.publicUrl)
+      if (rawImageUrl) URL.revokeObjectURL(rawImageUrl)
     } catch (err) {
       setError('Failed to upload photo')
       console.error('Upload error:', err)
@@ -108,6 +165,9 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
         weight: formData.weight ? parseFloat(formData.weight) : null,
         microchip_id: formData.microchip_id || null,
         photo_url: photoUrl,
+        is_dewormed: formData.is_dewormed,
+        deworming_date: formData.is_dewormed && formData.deworming_date ? formData.deworming_date : null,
+        deworming_location: formData.is_dewormed && formData.deworming_location ? formData.deworming_location : null,
         user_id: user.id,
       }
 
@@ -152,6 +212,33 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           </div>
         )}
 
+        {/* Crop Modal */}
+        <Dialog open={cropOpen} onOpenChange={(open) => { if (!open) setCropOpen(false) }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Crop Photo</DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-center py-2">
+              <div ref={croppieRef} />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setCropOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-[#243E36] hover:bg-[#1a2e28] text-white"
+                onClick={handleCropConfirm}
+                disabled={uploadingPhoto}
+              >
+                {uploadingPhoto ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
+                ) : 'Crop & Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Photo Upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -173,7 +260,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
               <input
                 type="file"
                 accept="image/*"
-                onChange={handlePhotoUpload}
+                onChange={handleFileSelect}
                 disabled={uploadingPhoto}
                 className="hidden"
               />
@@ -202,19 +289,22 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
             <label htmlFor="species" className="block text-sm font-medium text-gray-700 mb-2">
               Species *
             </label>
-            <select
-              id="species"
+            <Select
               value={formData.species}
-              onChange={(e) => setFormData({ ...formData, species: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent"
+              onValueChange={(value) => setFormData({ ...formData, species: value })}
               disabled={loading}
             >
-              {SPECIES_OPTIONS.map((species) => (
-                <option key={species} value={species}>
-                  {species}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="species" className="w-full">
+                <SelectValue placeholder="Select species" />
+              </SelectTrigger>
+              <SelectContent>
+                {SPECIES_OPTIONS.map((species) => (
+                  <SelectItem key={species} value={species}>
+                    {species}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
@@ -301,6 +391,81 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
               disabled={loading}
             />
           </div>
+        </div>
+
+        {/* Deworming */}
+        <div className="col-span-1 md:col-span-2 border border-gray-200 rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Deworming</p>
+              <p className="text-xs text-gray-500">Has this pet been dewormed?</p>
+            </div>
+            <Switch
+              checked={formData.is_dewormed}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, is_dewormed: checked })
+              }
+              disabled={loading}
+            />
+          </div>
+
+          {formData.is_dewormed && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Deworming Date
+                </label>
+                <Popover open={dewormingOpen} onOpenChange={setDewormingOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={loading}
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !formData.deworming_date && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.deworming_date
+                        ? format(parseISO(formData.deworming_date), 'PPP')
+                        : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      captionLayout="dropdown"
+                      selected={formData.deworming_date ? parseISO(formData.deworming_date) : undefined}
+                      onSelect={(date) => {
+                        setFormData({
+                          ...formData,
+                          deworming_date: date ? format(date, 'yyyy-MM-dd') : '',
+                        })
+                        setDewormingOpen(false)
+                      }}
+                      fromYear={1990}
+                      toYear={new Date().getFullYear()}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Clinic / Location
+                </label>
+                <Input
+                  type="text"
+                  value={formData.deworming_location}
+                  onChange={(e) => setFormData({ ...formData, deworming_location: e.target.value })}
+                  placeholder="e.g., City Vet Clinic"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Buttons */}

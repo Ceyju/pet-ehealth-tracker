@@ -18,12 +18,6 @@ import { Pet, Vaccination } from '@/types'
 const speciesIconMap: Record<string, string> = {
   dog: "🐶",
   cat: "🐱",
-  bird: "🐦",
-  rabbit: "🐰",
-  hamster: "🐹",
-  fish: "🐠",
-  turtle: "🐢",
-  reptile: "🦎",
 }
 
 const getPetIcon = (species?: string) =>
@@ -99,6 +93,9 @@ export default function DashboardPage() {
             microchip_id: p.microchip_id ?? null,
             photo_url: p.photo_url,
             vaccinations: vaccByPet[p.id] ?? [],
+            is_dewormed: p.is_dewormed,
+            deworming_date: p.deworming_date,
+            deworming_location: p.deworming_location,
           }))
         )
 

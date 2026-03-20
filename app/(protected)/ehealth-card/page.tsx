@@ -28,7 +28,7 @@ export default function EHealthCardPage() {
         // 1. Fetch all user pets
         const { data: petsData, error: petsErr } = await supabase
           .from('pets')
-          .select('id, name, species, breed, microchip_id, photo_url')
+          .select('id, name, species, breed, microchip_id, photo_url, is_dewormed, deworming_date, deworming_location')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
 
@@ -71,6 +71,9 @@ export default function EHealthCardPage() {
           microchip_id: p.microchip_id,
           photo_url: p.photo_url,
           vaccinations: vaccByPet[p.id] ?? [],
+          is_dewormed: p.is_dewormed,
+          deworming_date: p.deworming_date,
+          deworming_location: p.deworming_location,
         }))
 
         setPets(enriched)

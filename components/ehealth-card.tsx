@@ -25,6 +25,9 @@ export interface EHealthPet {
   microchip_id: string | null
   photo_url: string | null
   vaccinations: EHealthVaccination[]
+  is_dewormed: boolean
+  deworming_date: string | null
+  deworming_location: string | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -33,6 +36,23 @@ export interface EHealthPet {
 function vaccineStatus(nextDue: string | null): 'valid' | 'expired' {
   if (!nextDue) return 'expired'
   return new Date(nextDue) >= new Date() ? 'valid' : 'expired'
+}
+
+function nextDewormingStatus(dewormingDate: string | null): {
+  nextDue: Date | null
+  isOverdue: boolean
+  isDueSoon: boolean
+} {
+  if (!dewormingDate) return { nextDue: null, isOverdue: false, isDueSoon: false }
+  const next = new Date(dewormingDate)
+  next.setMonth(next.getMonth() + 6)
+  const today = new Date()
+  const diffDays = Math.ceil((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  return {
+    nextDue: next,
+    isOverdue: diffDays < 0,
+    isDueSoon: diffDays >= 0 && diffDays <= 30,
+  }
 }
 
 function formatDate(dateStr: string | null) {
@@ -175,6 +195,59 @@ export function EHealthCard({ pet, userId }: { pet: EHealthPet; userId: string }
                 </div>
               )
             })
+          )}
+        </div>
+
+        {/* ---- deworming status ---- */}
+        <div className="px-5 py-3 border-b border-dashed border-orange-200">
+          <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-2">
+            Deworming
+          </p>
+          {pet.is_dewormed ? (
+            <div className="space-y-2">
+              {/* Last dewormed row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-semibold text-green-700">Dewormed</span>
+                </div>
+                <div className="text-right text-xs text-gray-600">
+                  {pet.deworming_date && (
+                    <span>{formatDate(pet.deworming_date)}</span>
+                  )}
+                  {pet.deworming_location && (
+                    <span className="block text-gray-400">{pet.deworming_location}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Next due row */}
+              {(() => {
+                const { nextDue, isOverdue, isDueSoon } = nextDewormingStatus(pet.deworming_date)
+                if (!nextDue) return null
+                return (
+                  <div className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs ${
+                    isOverdue
+                      ? 'bg-red-50 text-red-600'
+                      : isDueSoon
+                      ? 'bg-amber-50 text-amber-600'
+                      : 'bg-green-50 text-green-700'
+                  }`}>
+                    <span className="font-medium">
+                      {isOverdue ? 'Deworming overdue' : 'Due for deworming'}
+                    </span>
+                    <span className="font-semibold">
+                      {formatDate(nextDue.toISOString())}
+                    </span>
+                  </div>
+                )
+              })()}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <XCircle className="w-4 h-4 text-amber-400" />
+              <span className="text-sm text-amber-600 font-medium">Not yet dewormed</span>
+            </div>
           )}
         </div>
 
