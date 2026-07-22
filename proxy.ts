@@ -4,6 +4,7 @@ import type { Database } from '@/types/database'
 
 const protectedPrefixes = ['/dashboard', '/pets', '/vaccinations', '/ehealth-card', '/settings']
 const authPrefixes = ['/login', '/signup', '/forgot-password']
+const recoveryPrefixes = ['/auth/callback', '/reset-password']
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -26,6 +27,7 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isProtected = protectedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
   const isAuth = authPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  const isRecovery = recoveryPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 
   if (isProtected && !data.user) {
     const url = request.nextUrl.clone()
@@ -34,7 +36,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (isAuth && data.user) {
+  if (isAuth && !isRecovery && data.user) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     url.search = ''

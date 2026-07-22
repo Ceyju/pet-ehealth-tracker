@@ -7,7 +7,7 @@ export function AuthFrame({ eyebrow, title, copy, children }: { eyebrow: string;
     <main className="grid min-h-screen lg:grid-cols-[1.05fr_.95fr]">
       <section className="relative hidden overflow-hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-2 text-lg font-semibold"><span className="grid size-10 place-items-center rounded-2xl bg-white/12"><PawPrint className="size-5" /></span>JoyCare</div>
-        <div className="relative z-10 max-w-xl"><p className="text-xs font-semibold uppercase tracking-[.18em] text-primary-foreground/60">Owner-maintained health</p><h1 className="mt-4 text-5xl font-semibold tracking-[-.04em]">Care feels lighter when everything has a place.</h1><p className="mt-5 max-w-lg text-lg leading-8 text-primary-foreground/70">Records, reminders, secure sharing, and every pet’s story—organized without the noise.</p></div>
+        <div className="relative z-10 max-w-xl"><p className="text-xs font-semibold uppercase tracking-[.18em] text-primary-foreground/60">Owner-maintained health</p><h1 className="mt-4 text-5xl font-semibold tracking-[-.04em]">Care feels lighter when everything has a place.</h1><p className="mt-5 max-w-lg text-lg leading-8 text-primary-foreground/70">Records, reminders, secure sharing, and every toy story 5.</p></div>
         <p className="text-sm text-primary-foreground/50">Private by default · Revocable sharing · Telegram reminders</p>
         <div className="absolute -right-36 -top-36 size-[32rem] rounded-full bg-white/5 blur-3xl" /><div className="absolute -bottom-48 -left-24 size-[30rem] rounded-full bg-emerald-300/10 blur-3xl" />
       </section>

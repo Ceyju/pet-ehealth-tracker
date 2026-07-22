@@ -1,27 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ArrowLeft, MailCheck } from 'lucide-react'
 import { AuthFrame, ErrorBox, Field } from '@/components/auth/auth-frame'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
+import { buildRecoveryRedirectUrl, recoveryErrorMessage } from '@/lib/auth-recovery'
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
+  const error = submissionError ?? recoveryErrorMessage(searchParams.get('error'))
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setLoading(true)
-    setError(null)
-    const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`
+    setSubmissionError(null)
+    const redirectTo = buildRecoveryRedirectUrl(window.location.origin)
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
     setLoading(false)
-    if (resetError) { setError(resetError.message); return }
+    if (resetError) { setSubmissionError(resetError.message); return }
     setSent(true)
   }
 
@@ -41,5 +45,13 @@ export default function ForgotPasswordPage() {
         </form>
       )}
     </AuthFrame>
+  )
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordForm />
+    </Suspense>
   )
 }
