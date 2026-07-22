@@ -1,115 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
 import { useAuthStore } from '@/lib/store'
-import { AlertCircle, Loader2, PawPrint } from 'lucide-react'
-import ShapeGrid from '@/components/ShapeGrid'
+import { AuthFrame, ErrorBox, Field } from '@/components/auth/auth-frame'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState('')
   const { login, loading, error } = useAuthStore()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      await login(email, password)
-      router.push('/dashboard')
-    } catch (err) {
-      console.error('Login failed:', err)
-    }
-  }
-
-  return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 bg-[#F1F7ED]">
-      <div className="absolute inset-0">
-        <ShapeGrid
-          speed={0.1}
-          squareSize={100}
-          direction="diagonal"
-          borderColor="#0c8649"
-          hoverFillColor="#4a9672"
-          shape="triangle"
-          hoverTrailAmount={0}
-        />
-      </div>
-
-      <Card className="relative z-10 w-full max-w-md">
-        <div className="p-8">
-          <div className="mb-8 flex items-center justify-center gap-2">
-            <PawPrint className="w-5 h-5" aria-hidden />
-            <h1 className="text-3xl font-bold text-center text-gray-900">JoyCare</h1>
-          </div>
-          <p className="text-center text-gray-600 mt-2">Pet Health Digital Tracker</p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <span className="text-sm text-red-600">{error}</span>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-[#243E36] hover:bg-[#1a2e28] text-white py-2 rounded-lg font-medium"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
-
-          <p className="text-center text-gray-600 text-sm mt-6">
-            Don't have an account?{' '}
-            <Link href="/signup" className="text-[#7CA982] hover:text-[#243E36] font-medium">
-              Sign up
-            </Link>
-          </p>
-        </div>
-      </Card>
-    </div>
-  )
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); try { await login(email, password); const next = new URLSearchParams(window.location.search).get('next'); router.replace(next?.startsWith('/') ? next : '/dashboard') } catch { /* Store exposes the message. */ } }
+  return <AuthFrame eyebrow="Welcome back" title="Your pet’s care, all in one calm place." copy="Open today’s care list, update owner-maintained records, and securely share the orange health card."><form onSubmit={submit} className="space-y-4">{error && <ErrorBox message={error} />}<Field label="Email" htmlFor="email"><Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={loading} className="min-h-12 rounded-2xl" placeholder="you@example.com" /></Field><Field label="Password" htmlFor="password"><Input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} className="min-h-12 rounded-2xl" placeholder="••••••••" /></Field><Button type="submit" disabled={loading} className="min-h-12 w-full rounded-2xl">{loading ? 'Signing in…' : <>Sign in<ArrowRight className="size-4" /></>}</Button><p className="pt-2 text-center text-sm text-muted-foreground">New to JoyCare? <Link href="/signup" className="font-semibold text-primary hover:underline">Create an account</Link></p></form></AuthFrame>
 }

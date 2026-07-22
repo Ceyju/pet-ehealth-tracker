@@ -2,17 +2,13 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react'
 import { Vaccination } from '@/types'
+import { daysUntil as getDaysUntil, formatHealthDate } from '@/lib/care'
 
 export function VaccinationCountdown({ vaccination }: { vaccination: Vaccination }) {
   const pet = vaccination.pet
 
   const { daysUntil, status, badgeClass } = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const dueDate = new Date(vaccination.next_due_date)
-    dueDate.setHours(0, 0, 0, 0)
-    const timeDiff = dueDate.getTime() - today.getTime()
-    const daysUntil = Math.ceil(timeDiff / (1000 * 3600 * 24))
+    const daysUntil = getDaysUntil(vaccination.next_due_date) ?? 0
 
     let status = 'upcoming'
     let badgeClass = 'bg-[#E0EEC6] text-[#243E36]'
@@ -30,11 +26,6 @@ export function VaccinationCountdown({ vaccination }: { vaccination: Vaccination
 
     return { daysUntil, status, badgeClass }
   }, [vaccination.next_due_date])
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
 
   const getStatusLabel = () => {
     if (daysUntil < 0) {
@@ -57,7 +48,7 @@ export function VaccinationCountdown({ vaccination }: { vaccination: Vaccination
           <div className="flex-1">
             <p className="font-semibold text-gray-900">{vaccination.vaccine_name}</p>
             <p className="text-sm text-gray-600 mt-1">{pet.name} ({pet.species})</p>  {/* ✅ pet instead of vaccination.pet */}
-            <p className="text-xs text-gray-500 mt-2">Due: {formatDate(vaccination.next_due_date)}</p>
+            <p className="text-xs text-gray-500 mt-2">Due: {formatHealthDate(vaccination.next_due_date)}</p>
           </div>
 
           <div className="flex flex-col items-end gap-2 ml-4">

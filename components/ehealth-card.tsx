@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import QRCode from 'qrcode'
 import Image from 'next/image'
-import { CheckCircle, XCircle, ShieldCheck, PawPrint } from 'lucide-react'
+import QRCode from 'qrcode'
+import { CheckCircle, Info, LockKeyhole, PawPrint, XCircle } from 'lucide-react'
+import { formatHealthDate, vaccinationStatus } from '@/lib/care'
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
 export interface EHealthVaccination {
   id: string
   vaccine_name: string
@@ -30,258 +28,91 @@ export interface EHealthPet {
   deworming_location: string | null
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-function vaccineStatus(nextDue: string | null): 'valid' | 'expired' {
-  if (!nextDue) return 'expired'
-  return new Date(nextDue) >= new Date() ? 'valid' : 'expired'
-}
-
-function nextDewormingStatus(dewormingDate: string | null): {
-  nextDue: Date | null
-  isOverdue: boolean
-  isDueSoon: boolean
-} {
-  if (!dewormingDate) return { nextDue: null, isOverdue: false, isDueSoon: false }
-  const next = new Date(dewormingDate)
+function nextDewormingStatus(value: string | null) {
+  if (!value) return null
+  const next = new Date(`${value.slice(0, 10)}T00:00:00`)
   next.setMonth(next.getMonth() + 6)
-  const today = new Date()
-  const diffDays = Math.ceil((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  return {
-    nextDue: next,
-    isOverdue: diffDays < 0,
-    isDueSoon: diffDays >= 0 && diffDays <= 30,
-  }
+  const days = Math.ceil((next.getTime() - Date.now()) / 86_400_000)
+  return { next, overdue: days < 0, soon: days >= 0 && days <= 30 }
 }
 
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
-/** Derive vet / clinic from the most recent vaccination */
-function deriveFooter(vaccinations: EHealthVaccination[]) {
-  const sorted = [...vaccinations].sort(
-    (a, b) => new Date(b.date_administered).getTime() - new Date(a.date_administered).getTime(),
-  )
-  const latest = sorted[0]
-  return {
-    vet: latest?.vet_name || null,
-    clinic: latest?.clinic_name || null,
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Inline QR canvas component                                        */
-/* ------------------------------------------------------------------ */
-function QRCanvas({ value, size = 120 }: { value: string; size?: number }) {
+function QRCanvas({ value }: { value: string }) {
   const ref = useRef<HTMLCanvasElement>(null)
-
   useEffect(() => {
     if (!ref.current) return
-    QRCode.toCanvas(ref.current, value, {
-      errorCorrectionLevel: 'H',
-      margin: 1,
-      width: size,
+    void QRCode.toCanvas(ref.current, value, {
+      errorCorrectionLevel: 'H', margin: 1, width: 120,
       color: { dark: '#1f2937', light: '#ffffff' },
-    }).catch(console.error)
-  }, [value, size])
-
-  return <canvas ref={ref} className="rounded-lg" />
+    })
+  }, [value])
+  return <canvas ref={ref} className="rounded-lg" aria-label="Secure share QR code" />
 }
 
-/* ------------------------------------------------------------------ */
-/*  Main card                                                          */
-/* ------------------------------------------------------------------ */
-export function EHealthCard({ pet, userId }: { pet: EHealthPet; userId: string }) {
-  const qrValue =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/qr/${pet.id}?user=${userId}`
-      : `https://app/qr/${pet.id}?user=${userId}`
-
-  const { vet, clinic } = deriveFooter(pet.vaccinations)
+export function EHealthCard({ pet, shareUrl }: { pet: EHealthPet; shareUrl?: string | null }) {
+  const latestVaccination = [...pet.vaccinations].sort(
+    (a, b) => new Date(b.date_administered).getTime() - new Date(a.date_administered).getTime(),
+  )[0]
+  const deworming = nextDewormingStatus(pet.deworming_date)
 
   return (
-    <div
-      className="w-full max-w-md mx-auto select-none"
-      role="article"
-      aria-label={`eHealth vaccination card for ${pet.name}`}
-    >
-      {/* ---- outer frame (orange border effect) ---- */}
-      <div className="rounded-2xl border-4 border-orange-400 bg-white shadow-xl overflow-hidden">
-        {/* ---- header ---- */}
-        <div className="flex items-center justify-between bg-linear-to-r from-orange-400 to-orange-500 px-5 py-3">
-          <span className="text-white font-extrabold tracking-wider text-lg flex items-center gap-1">
-            <PawPrint className="w-5 h-5" aria-hidden />
-            JOYCARE
-          </span>
-          <span className="text-white text-sm font-semibold tracking-wide uppercase">
-            Vaccination Card
-          </span>
-        </div>
+    <article className="mx-auto w-full max-w-md select-none" aria-label={`Owner-maintained health card for ${pet.name}`}>
+      <div className="overflow-hidden rounded-2xl border-4 border-orange-400 bg-white text-gray-900 shadow-xl">
+        <header className="flex items-center justify-between bg-linear-to-r from-orange-400 to-orange-500 px-5 py-3 text-white">
+          <span className="flex items-center gap-1 text-lg font-extrabold tracking-wider"><PawPrint className="size-5" />JOYCARE</span>
+          <span className="text-sm font-semibold uppercase tracking-wide">Health Card</span>
+        </header>
 
-        {/* ---- pet info ---- */}
-        <div className="flex items-start justify-between px-5 py-4 border-b border-dashed border-orange-200">
-          <div className="space-y-1 min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">
-              Pet&apos;s Name
-            </p>
-            <p className="text-xl font-extrabold text-gray-900 uppercase truncate">
-              {pet.name}
-            </p>
-            {pet.microchip_id && (
-              <>
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium mt-2">
-                  Microchip No.
-                </p>
-                <p className="font-mono text-sm text-gray-700">{pet.microchip_id}</p>
-              </>
-            )}
+        <section className="flex items-start justify-between border-b border-dashed border-orange-200 px-5 py-4">
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Pet’s name</p>
+            <p className="truncate text-xl font-extrabold uppercase">{pet.name}</p>
+            <p className="text-sm capitalize text-gray-500">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
+            {pet.microchip_id && <><p className="mt-2 text-[11px] font-medium uppercase tracking-wider text-gray-400">Microchip</p><p className="break-all font-mono text-sm text-gray-700">{pet.microchip_id}</p></>}
           </div>
-
-          {/* pet avatar */}
-          <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-orange-300 shrink-0 ml-4 bg-gray-100">
-            {pet.photo_url ? (
-              <Image
-                src={pet.photo_url}
-                alt={pet.name}
-                width={80}
-                height={80}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-3xl bg-orange-50">
-                {pet.species?.toLowerCase() === 'dog' ? '🐶' : pet.species?.toLowerCase() === 'cat' ? '🐱' : '🐾'}
-              </div>
-            )}
+          <div className="ml-4 size-20 shrink-0 overflow-hidden rounded-xl border-2 border-orange-300 bg-orange-50">
+            {pet.photo_url ? <Image src={pet.photo_url} alt={pet.name} width={80} height={80} className="size-full object-cover" /> : <div className="grid size-full place-items-center text-3xl">{pet.species.toLowerCase() === 'dog' ? '🐶' : pet.species.toLowerCase() === 'cat' ? '🐱' : '🐾'}</div>}
           </div>
-        </div>
+        </section>
 
-        {/* ---- vaccinations list ---- */}
-        <div className="px-5 py-4 space-y-3 border-b border-dashed border-orange-200">
-          {pet.vaccinations.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              No vaccinations recorded yet
-            </p>
-          ) : (
-            pet.vaccinations.map((v) => {
-              const status = vaccineStatus(v.next_due_date)
-              const isValid = status === 'valid'
-              return (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between"
-                >
-                  <p className="font-semibold text-gray-800 text-sm">{v.vaccine_name}</p>
-                  <div className="flex items-center gap-1.5 text-xs font-medium">
-                    {isValid ? (
-                      <>
-                        <span className="text-gray-400 uppercase text-[10px]">Valid until:</span>
-                        <span className="text-green-600">{formatDate(v.next_due_date)}</span>
-                        <CheckCircle className="w-4 h-4 text-green-500" aria-label="Valid" />
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-gray-400 uppercase text-[10px]">Expired:</span>
-                        <span className="text-red-500">{formatDate(v.next_due_date)}</span>
-                        <XCircle className="w-4 h-4 text-red-400" aria-label="Expired" />
-                      </>
-                    )}
-                  </div>
+        <section className="space-y-3 border-b border-dashed border-orange-200 px-5 py-4" aria-label="Vaccinations">
+          {pet.vaccinations.length === 0 ? <p className="py-4 text-center text-sm text-gray-400">No vaccinations recorded yet</p> : pet.vaccinations.map((vaccination) => {
+            const status = vaccinationStatus(vaccination.next_due_date)
+            const current = status !== 'overdue' && status !== 'unscheduled'
+            return (
+              <div key={vaccination.id} className="flex items-start justify-between gap-3">
+                <p className="min-w-0 break-words text-sm font-semibold text-gray-800">{vaccination.vaccine_name}</p>
+                <div className={`flex shrink-0 items-center gap-1 text-right text-xs font-medium ${current ? 'text-green-600' : 'text-red-500'}`}>
+                  <span><span className="block text-[9px] uppercase text-gray-400">{current ? 'Valid until' : status === 'overdue' ? 'Expired' : 'Due date'}</span>{formatHealthDate(vaccination.next_due_date, { month: 'short', year: 'numeric' })}</span>
+                  {current ? <CheckCircle className="size-4" aria-label="Current" /> : <XCircle className="size-4" aria-label="Needs attention" />}
                 </div>
-              )
-            })
-          )}
-        </div>
+              </div>
+            )
+          })}
+        </section>
 
-        {/* ---- deworming status ---- */}
-        <div className="px-5 py-3 border-b border-dashed border-orange-200">
-          <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-2">
-            Deworming
-          </p>
+        <section className="border-b border-dashed border-orange-200 px-5 py-3">
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-gray-400">Deworming</p>
           {pet.is_dewormed ? (
             <div className="space-y-2">
-              {/* Last dewormed row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-semibold text-green-700">Dewormed</span>
-                </div>
-                <div className="text-right text-xs text-gray-600">
-                  {pet.deworming_date && (
-                    <span>{formatDate(pet.deworming_date)}</span>
-                  )}
-                  {pet.deworming_location && (
-                    <span className="block text-gray-400">{pet.deworming_location}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Next due row */}
-              {(() => {
-                const { nextDue, isOverdue, isDueSoon } = nextDewormingStatus(pet.deworming_date)
-                if (!nextDue) return null
-                return (
-                  <div className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs ${
-                    isOverdue
-                      ? 'bg-red-50 text-red-600'
-                      : isDueSoon
-                      ? 'bg-amber-50 text-amber-600'
-                      : 'bg-green-50 text-green-700'
-                  }`}>
-                    <span className="font-medium">
-                      {isOverdue ? 'Deworming overdue' : 'Due for deworming'}
-                    </span>
-                    <span className="font-semibold">
-                      {formatDate(nextDue.toISOString())}
-                    </span>
-                  </div>
-                )
-              })()}
+              <div className="flex items-start justify-between gap-3 text-sm"><span className="flex items-center gap-1.5 font-semibold text-green-700"><CheckCircle className="size-4" />Recorded</span><span className="text-right text-xs text-gray-600">{formatHealthDate(pet.deworming_date)}{pet.deworming_location && <span className="block text-gray-400">{pet.deworming_location}</span>}</span></div>
+              {deworming && <div className={`flex justify-between rounded-lg px-2 py-1.5 text-xs ${deworming.overdue ? 'bg-red-50 text-red-600' : deworming.soon ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}><span className="font-medium">{deworming.overdue ? 'Deworming overdue' : 'Next deworming'}</span><span className="font-semibold">{formatHealthDate(deworming.next.toISOString())}</span></div>}
             </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <XCircle className="w-4 h-4 text-amber-400" />
-              <span className="text-sm text-amber-600 font-medium">Not yet dewormed</span>
-            </div>
-          )}
-        </div>
+          ) : <span className="flex items-center gap-1.5 text-sm font-medium text-amber-700"><XCircle className="size-4" />Not recorded</span>}
+        </section>
 
-        {/* ---- vet / clinic footer ---- */}
-        {(vet || clinic) && (
-          <div className="grid grid-cols-2 gap-4 px-5 py-3 border-b border-dashed border-orange-200 text-xs text-gray-600">
-            {vet && (
-              <div>
-                <p className="uppercase text-[10px] tracking-wider text-gray-400 font-medium mb-0.5">
-                  Administered
-                </p>
-                <p className="font-semibold text-gray-800">{vet}</p>
-              </div>
-            )}
-            {clinic && (
-              <div>
-                <p className="uppercase text-[10px] tracking-wider text-gray-400 font-medium mb-0.5">
-                  Veterinary Clinic
-                </p>
-                <p className="font-semibold text-gray-800">{clinic}</p>
-              </div>
-            )}
-          </div>
+        {(latestVaccination?.vet_name || latestVaccination?.clinic_name) && (
+          <section className="grid grid-cols-2 gap-4 border-b border-dashed border-orange-200 px-5 py-3 text-xs">
+            <div><p className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">Provider</p><p className="font-semibold text-gray-800">{latestVaccination.vet_name || 'Not listed'}</p></div>
+            <div><p className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">Clinic</p><p className="font-semibold text-gray-800">{latestVaccination.clinic_name || 'Not listed'}</p></div>
+          </section>
         )}
 
-        {/* ---- QR code + verified badge ---- */}
-        <div className="flex flex-col items-center py-5 gap-2">
-          <QRCanvas value={qrValue} size={120} />
-          <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mt-1">
-            <ShieldCheck className="w-4 h-4" />
-            Vet Verified
-          </div>
-        </div>
+        <footer className="flex flex-col items-center gap-2 py-5">
+          {shareUrl ? <QRCanvas value={shareUrl} /> : <div className="grid size-[120px] place-items-center rounded-xl border border-dashed border-orange-200 bg-orange-50 text-orange-700"><div className="text-center"><LockKeyhole className="mx-auto mb-1 size-5" /><span className="text-[10px] font-semibold">Private</span></div></div>}
+          <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-gray-600"><Info className="size-4" />Owner-maintained record</div>
+          {!shareUrl && <p className="px-5 text-center text-[10px] text-gray-400">Create a revocable share link to activate this QR.</p>}
+        </footer>
       </div>
-    </div>
+    </article>
   )
 }

@@ -5,41 +5,28 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 import { Navigation } from '@/components/navigation'
 
-export default function ProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { user, loading } = useAuthStore()
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
+    if (!loading && !user) router.replace('/login')
   }, [user, loading, router])
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7CA982]"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+      <div className="grid min-h-screen place-items-center" role="status" aria-label="Loading JoyCare">
+        <div className="size-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
       </div>
     )
   }
 
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Navigation />
-      <main className="pt-16">
-        {children}
-      </main>
+      <main className="pb-28 pt-16 md:pb-8 md:pt-24">{children}</main>
     </div>
   )
 }

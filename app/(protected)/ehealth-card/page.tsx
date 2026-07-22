@@ -2,144 +2,50 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2 } from 'lucide-react'
 import { EHealthCarousel } from '@/components/ehealth-carousel'
 import type { EHealthPet, EHealthVaccination } from '@/components/ehealth-card'
+import { ShareControls } from '@/components/sharing/share-controls'
 
 export default function EHealthCardPage() {
-  const { user } = useAuthStore()
+  const user = useAuthStore((state) => state.user)
   const [pets, setPets] = useState<EHealthPet[]>([])
+  const [shareUrls, setShareUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.id) {
-        setLoading(false)
-        return
-      }
-
+    if (!user?.id) return
+    const load = async () => {
       try {
-        setLoading(true)
-
-        // 1. Fetch all user pets
-        const { data: petsData, error: petsErr } = await supabase
-          .from('pets')
+        const { data: petRows, error: petError } = await supabase.from('pets')
           .select('id, name, species, breed, microchip_id, photo_url, is_dewormed, deworming_date, deworming_location')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (petsErr) throw petsErr
-        if (!petsData || petsData.length === 0) {
-          setPets([])
-          return
-        }
-
-        const petIds = petsData.map((p) => p.id).filter(Boolean)
-
-        // 2. Fetch vaccinations for all pets at once
-        const { data: vaccData, error: vaccErr } = await supabase
-          .from('vaccinations')
+          .eq('user_id', user.id).order('created_at', { ascending: false })
+        if (petError) throw petError
+        const ids = (petRows ?? []).map((pet) => pet.id)
+        const vaccinationRows = ids.length ? await supabase.from('vaccinations')
           .select('id, pet_id, vaccine_name, next_due_date, date_administered, clinic_name, vet_name')
-          .in('pet_id', petIds)
-          .order('date_administered', { ascending: false })
-
-        if (vaccErr) throw vaccErr
-
-        // 3. Group vaccinations by pet_id
-        const vaccByPet: Record<string, EHealthVaccination[]> = {}
-        for (const v of vaccData ?? []) {
-          if (!vaccByPet[v.pet_id]) vaccByPet[v.pet_id] = []
-          vaccByPet[v.pet_id].push({
-            id: v.id,
-            vaccine_name: v.vaccine_name,
-            next_due_date: v.next_due_date,
-            date_administered: v.date_administered,
-            clinic_name: v.clinic_name,
-            vet_name: v.vet_name,
-          })
-        }
-
-        const enriched: EHealthPet[] = petsData.map((p) => ({
-          id: p.id,
-          name: p.name,
-          species: p.species,
-          breed: p.breed,
-          microchip_id: p.microchip_id,
-          photo_url: p.photo_url,
-          vaccinations: vaccByPet[p.id] ?? [],
-          is_dewormed: p.is_dewormed,
-          deworming_date: p.deworming_date,
-          deworming_location: p.deworming_location,
-        }))
-
-        setPets(enriched)
-      } catch (err) {
-        console.error('Error loading eHealth cards:', err)
-        setError('Failed to load eHealth cards')
-      } finally {
-        setLoading(false)
-      }
+          .in('pet_id', ids).order('date_administered', { ascending: false }) : { data: [], error: null }
+        if (vaccinationRows.error) throw vaccinationRows.error
+        const byPet: Record<string, EHealthVaccination[]> = {}
+        for (const vaccination of vaccinationRows.data ?? []) (byPet[vaccination.pet_id] ||= []).push(vaccination)
+        setPets((petRows ?? []).map((pet) => ({ ...pet, vaccinations: byPet[pet.id] ?? [] })))
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Could not load health cards')
+      } finally { setLoading(false) }
     }
+    void load()
+  }, [user?.id])
 
-    fetchData()
-  }, [user])
-
-  /* ----- loading ----- */
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-125">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#7CA982] mx-auto" />
-          <p className="mt-4 text-gray-500 text-sm">Loading eHealth cards…</p>
-        </div>
-      </div>
-    )
-  }
-
-  /* ----- empty state ----- */
-  if (pets.length === 0) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/dashboard">
-          <Button variant="outline" className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </Link>
-        <div className="text-center py-20">
-          <p className="text-gray-500 mb-4">No pets registered yet.</p>
-          <Link href="/pets/new">
-            <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">Add your first pet</Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  /* ----- main ----- */
+  if (loading) return <div className="grid min-h-96 place-items-center"><div className="size-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" /></div>
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center gap-4 mb-8">
-        <Link href="/dashboard">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">eHealth Card</h1>
-      </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-          {error}
-        </div>
-      )}
-
-      <EHealthCarousel pets={pets} userId={user?.id ?? ''} />
+    <div className="page-shell space-y-6">
+      <header><p className="eyebrow">Portable health summary</p><h1 className="page-heading mt-1">eHealth Card</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Your orange card stays familiar. Sharing is now private, revocable, and clearly marked as owner-maintained.</p></header>
+      {error && <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
+      {!pets.length ? <section className="surface grid place-items-center gap-4 py-16 text-center"><p className="text-muted-foreground">Add a pet to create their health card.</p><Button asChild className="ios-control"><Link href="/pets/new"><Plus className="size-4" />Add pet</Link></Button></section> : <><EHealthCarousel pets={pets} shareUrls={shareUrls} /><ShareControls pets={pets} onShareCreated={(petId, url) => setShareUrls((current) => ({ ...current, [petId]: url }))} /></>}
     </div>
   )
 }

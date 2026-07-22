@@ -47,7 +47,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, [user, resetTimer])
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
       <Toaster />
     </ThemeProvider>

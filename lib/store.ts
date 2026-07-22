@@ -10,6 +10,7 @@ export interface User {
   city: string | null
   state: string | null
   zip_code: string | null
+  timezone: string
 }
 
 interface AuthStore {
@@ -91,6 +92,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
           city: null,
           state: null,
           zip_code: null,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         }
 
         set({ user: profile, loading: false })

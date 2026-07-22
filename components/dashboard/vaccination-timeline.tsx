@@ -1,4 +1,4 @@
-import { Check, AlertCircle, Clock, ShieldCheck } from 'lucide-react'
+import { Check, AlertCircle, Clock } from 'lucide-react'
 
 interface VaccinationEvent {
   id: string
@@ -11,7 +11,6 @@ interface VaccinationEvent {
   vet_name?: string | null
   batch_number?: string | null
   notes?: string | null
-  is_verified?: boolean
 }
 
 interface VaccinationTimelineProps {
@@ -75,11 +74,6 @@ export function VaccinationTimeline({ vaccinations }: VaccinationTimelineProps) 
                   <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold text-gray-900">{v.vaccine_name}</h4>
-                      {v.is_verified && (
-                        <span title="Verified by vet" className="text-[#7CA982]">
-                          <ShieldCheck className="w-4 h-4" />
-                        </span>
-                      )}
                       {v.vaccine_type && (
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#E0EEC6] text-[#243E36] capitalize">
                           {v.vaccine_type}

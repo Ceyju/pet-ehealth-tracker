@@ -27,12 +27,11 @@ interface Vaccination {
   vaccine_type: string | null
   date_administered: string
   expiry_date: string | null
-  next_due_date: string
+  next_due_date: string | null
   clinic_name: string | null
   vet_name: string | null
   batch_number: string | null
   notes: string | null
-  is_verified: boolean
 }
 
 export default function TimelinePage({ params }: { params: Promise<{ id: string }> }) {
@@ -72,8 +71,7 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
             clinic_name,
             vet_name,
             batch_number,
-            notes,
-            is_verified
+            notes
           `)
           .eq('pet_id', id)
           .order('date_administered', { ascending: false })
@@ -108,12 +106,12 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
           vaccineType: v.vaccine_type ?? undefined,
           dateAdministered: v.date_administered,
           expiryDate: v.expiry_date ?? undefined,
-          nextDueDate: v.next_due_date,
+          nextDueDate: v.next_due_date || v.expiry_date || v.date_administered,
           clinicName: v.clinic_name ?? undefined,
           vetName: v.vet_name ?? undefined,
           batchNumber: v.batch_number ?? undefined,
           notes: v.notes ?? undefined,
-          isVerified: v.is_verified,
+          isVerified: false,
         }))
       )
     } catch (err) {
@@ -155,7 +153,7 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
         <div className="flex justify-between items-start mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Vaccination Timeline</h1>
-            <p className="text-gray-600 mt-2">{pet.name}'s health history</p>
+            <p className="text-gray-600 mt-2">{pet.name}’s health history</p>
           </div>
           <Button
             onClick={handleExportPDF}
@@ -177,7 +175,10 @@ export default function TimelinePage({ params }: { params: Promise<{ id: string 
             </Link>
           </div>
         ) : (
-          <VaccinationTimeline vaccinations={vaccinations} />
+          <VaccinationTimeline vaccinations={vaccinations.map((vaccination) => ({
+            ...vaccination,
+            next_due_date: vaccination.next_due_date || vaccination.expiry_date || vaccination.date_administered,
+          }))} />
         )}
       </Card>
     </div>

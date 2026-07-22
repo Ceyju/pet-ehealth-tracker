@@ -1,171 +1,55 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
+import { motion } from 'motion/react'
+import { ArrowRight, Edit2, PawPrint, Plus, Search, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { PlusCircle, Edit2, Trash2, Heart } from 'lucide-react'
-
-interface Pet {
-  id: string
-  name: string
-  species: string
-  breed: string | null
-  photo_url: string | null
-}
+import { Input } from '@/components/ui/input'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import type { PetSummary } from '@/types'
 
 export default function PetsPage() {
-  const { user } = useAuthStore()
-  const [pets, setPets] = useState<Pet[]>([])
+  const user = useAuthStore((state) => state.user)
+  const [pets, setPets] = useState<PetSummary[]>([])
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletePet, setDeletePet] = useState<PetSummary | null>(null)
 
   useEffect(() => {
-    const fetchPets = async () => {
-      if (!user) return
+    if (!user?.id) return
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase.from('pets').select('id, name, species, breed, photo_url').eq('user_id', user.id).order('created_at', { ascending: false })
+      if (cancelled) return
+      if (error) toast.error('Could not load pets')
+      setPets(data ?? []); setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [user?.id])
 
-      try {
-        setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('pets')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (fetchError) throw fetchError
-        setPets(data || [])
-      } catch (err) {
-        console.error('Error fetching pets:', err)
-        setError('Failed to load pets')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPets()
-  }, [user])
-
-  const handleDelete = async (petId: string) => {
-    if (!window.confirm('Are you sure you want to delete this pet?')) return
-
-    setDeletingId(petId)
-    try {
-      const { error: deleteError } = await supabase
-        .from('pets')
-        .delete()
-        .eq('id', petId)
-        .eq('user_id', user?.id)
-
-      if (deleteError) throw deleteError
-      setPets(pets.filter((p) => p.id !== petId))
-    } catch (err) {
-      console.error('Error deleting pet:', err)
-      setError('Failed to delete pet')
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center min-h-100">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7CA982]"></div>
-            <p className="mt-4 text-gray-600">Loading pets...</p>
-          </div>
-        </div>
-      </div>
-    )
+  const filtered = useMemo(() => pets.filter((pet) => `${pet.name} ${pet.species} ${pet.breed || ''}`.toLowerCase().includes(query.toLowerCase())), [pets, query])
+  const confirmDelete = async () => {
+    if (!deletePet || !user?.id) return
+    const { error } = await supabase.from('pets').delete().eq('id', deletePet.id).eq('user_id', user.id)
+    if (error) toast.error(error.message)
+    else { setPets((current) => current.filter((pet) => pet.id !== deletePet.id)); toast.success(`${deletePet.name} was removed`) }
+    setDeletePet(null)
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Pets</h1>
-          <p className="text-gray-600 mt-2">Manage all your pets in one place</p>
-        </div>
-        <Link href="/pets/new">
-          <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">
-            <PlusCircle className="w-4 h-4 mr-2" />
-            Add Pet
-          </Button>
-        </Link>
-      </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
-          {error}
-        </div>
+    <div className="page-shell space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">Your family</p><h1 className="page-heading mt-1">Pets</h1><p className="mt-2 text-sm text-muted-foreground">Health summaries and records for every animal in your care.</p></div><Button asChild className="ios-control gap-2"><Link href="/pets/new"><Plus className="size-4" />Add pet</Link></Button></header>
+      {pets.length > 3 && <div className="relative max-w-md"><Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search pets" className="min-h-12 rounded-2xl bg-card pl-11" /></div>}
+      {loading ? <div className="grid min-h-64 place-items-center"><div className="size-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary" /></div> : !pets.length ? <section className="surface grid min-h-80 place-items-center px-6 text-center"><div><span className="mx-auto grid size-16 place-items-center rounded-3xl bg-secondary"><PawPrint className="size-7 text-primary" /></span><h2 className="mt-5 text-xl font-semibold">Add your first pet</h2><p className="mt-2 text-sm text-muted-foreground">JoyCare will organize their vaccinations, records, reminders, and secure health card.</p><Button asChild className="ios-control mt-6"><Link href="/pets/new"><Plus className="size-4" />Add pet</Link></Button></div></section> : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{filtered.map((pet, index) => <motion.article key={pet.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="surface group overflow-hidden"><Link href={`/pets/${pet.id}`} className="block"><div className="relative h-48 bg-secondary">{pet.photo_url ? <Image src={pet.photo_url} alt={pet.name} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" /> : <div className="grid size-full place-items-center text-6xl">{pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}</div>}<span className="absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur">{pet.species}</span></div><div className="flex items-center gap-3 p-5"><div className="min-w-0 flex-1"><h2 className="truncate text-xl font-semibold">{pet.name}</h2><p className="truncate text-sm text-muted-foreground">{pet.breed || 'Breed not set'}</p></div><ArrowRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" /></div></Link><div className="flex gap-2 border-t p-3"><Button asChild variant="ghost" className="flex-1 rounded-xl"><Link href={`/pets/${pet.id}/edit`}><Edit2 className="size-4" />Edit</Link></Button><Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => setDeletePet(pet)} aria-label={`Delete ${pet.name}`}><Trash2 className="size-4" /></Button></div></motion.article>)}</div>
       )}
-
-      {pets.length === 0 ? (
-        <Card className="p-12">
-          <div className="text-center">
-            <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No pets yet</h3>
-            <p className="text-gray-600 mb-6">Start tracking your pet's vaccinations by adding your first pet</p>
-            <Link href="/pets/new">
-              <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Add Your First Pet
-              </Button>
-            </Link>
-          </div>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pets.map((pet) => (
-            <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              {pet.photo_url && (
-                <div className="h-48 bg-gray-200 overflow-hidden">
-                  <img
-                    src={pet.photo_url}
-                    alt={pet.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-900">{pet.name}</h3>
-                <p className="text-gray-600 mt-1">
-                  {pet.species}{pet.breed ? ` • ${pet.breed}` : ''}
-                </p>
-
-                <div className="flex gap-2 mt-6">
-                  <Link href={`/pets/${pet.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full">
-                      View Details
-                    </Button>
-                  </Link>
-                  <Link href={`/pets/${pet.id}/edit`}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="px-3"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="px-3 text-red-600 hover:text-red-700"
-                    onClick={() => handleDelete(pet.id)}
-                    disabled={deletingId === pet.id}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      {!loading && pets.length > 0 && filtered.length === 0 && <p className="py-16 text-center text-sm text-muted-foreground">No pets match “{query}”.</p>}
+      <AlertDialog open={Boolean(deletePet)} onOpenChange={(open) => !open && setDeletePet(null)}><AlertDialogContent className="rounded-3xl"><AlertDialogHeader><AlertDialogTitle>Remove {deletePet?.name}?</AlertDialogTitle><AlertDialogDescription>This permanently deletes the pet and linked vaccinations, records, reminders, and share links.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove pet</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   )
 }

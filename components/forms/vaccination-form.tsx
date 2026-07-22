@@ -11,6 +11,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { AlertCircle, Loader2, Syringe, CalendarIcon } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { FormSelect } from '@/components/forms/form-select'
 
 interface VaccinationFormProps {
   petId: string
@@ -73,7 +74,7 @@ function DatePickerField({
 
   return (
     <div ref={ref} className="relative">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-2">
+      <label htmlFor={id} className="block text-sm font-medium text-white-700 mb-2">
         {label} {required && '*'}
       </label>
       <button
@@ -82,8 +83,8 @@ function DatePickerField({
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'w-full flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm',
-          'focus:outline-none focus:ring-2 focus:ring-[#7CA982] focus:border-transparent',
+          'w-full flex items-center gap-2 px-4 py-2 border border-input rounded-lg bg-transparent text-foreground text-sm shadow-xs',
+          'dark:bg-input/30 focus:outline-none focus:ring-2 focus:ring-[#7CA982] focus:border-transparent',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           !selected && 'text-gray-400'
         )}
@@ -130,7 +131,6 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
     vet_name: '',
     batch_number: '',
     notes: '',
-    is_verified: false,
   })
 
   const prefillVaccine = (name: string) => {
@@ -179,7 +179,6 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
             vet_name: data.vet_name ?? '',
             batch_number: data.batch_number ?? '',
             notes: data.notes ?? '',
-            is_verified: data.is_verified ?? false,
           })
         }
       }
@@ -192,10 +191,20 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
     e.preventDefault()
     if (!user) return
 
+    if (!formData.vaccine_name.trim()) {
+      setError('Choose a vaccine or enter a custom vaccine name.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
+      const legacyStatus = !formData.next_due_date
+        ? 'completed'
+        : formData.next_due_date < format(new Date(), 'yyyy-MM-dd')
+          ? 'overdue'
+          : 'upcoming'
       const vaccinationData = {
         pet_id: petId,
         vaccine_name: formData.vaccine_name,
@@ -207,7 +216,8 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
         vet_name: formData.vet_name || null,
         batch_number: formData.batch_number || null,
         notes: formData.notes || null,
-        is_verified: formData.is_verified,
+        status: legacyStatus,
+        is_verified: false,
       }
 
       if (vaccinationId) {
@@ -215,18 +225,24 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
           .from('vaccinations')
           .update(vaccinationData)
           .eq('id', vaccinationId)
+          .eq('pet_id', petId)
+          .select('id')
+          .single()
 
         if (updateError) throw updateError
       } else {
         const { error: insertError } = await supabase
           .from('vaccinations')
           .insert([vaccinationData])
+          .select('id')
+          .single()
 
         if (insertError) throw insertError
       }
 
       onSuccess?.()
       router.push(`/pets/${petId}`)
+      router.refresh()
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -236,11 +252,11 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
   return (
     <Card className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">
+      <h1 className="text-3xl font-bold text-white-900 mb-2">
         {vaccinationId ? 'Edit Vaccination' : 'Record Vaccination'}
       </h1>
       {petName && (
-        <p className="text-gray-600 mb-6">for {petName}</p>
+        <p className="text-white-600 mb-6">for {petName.toUpperCase()}</p>
       )}
 
       {/* Cat Vaccination Schedule */}
@@ -248,7 +264,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
             <Syringe className="w-4 h-4 text-[#7CA982]" />
-            <h2 className="text-sm font-semibold text-[#243E36] uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-white-900 uppercase tracking-wide">
               Recommended Cat Vaccination Schedule
             </h2>
           </div>
@@ -282,7 +298,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Click "Use" to pre-fill the form below with that vaccine.</p>
+          <p className="text-xs text-gray-400 mt-2">Choose Use to pre-fill the form below with that vaccine.</p>
         </div>
       )}
 
@@ -296,14 +312,11 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
         {/* Vaccine Name */}
         <div>
-          <label htmlFor="vaccine" className="block text-sm font-medium text-gray-700 mb-2">
-            Vaccine Name *
-          </label>
-          <select
+          <FormSelect
             id="vaccine"
+            label="Vaccine Name"
             value={dropdownValue}
-            onChange={(e) => {
-              const val = e.target.value
+            onChange={(val) => {
               setDropdownValue(val)
               if (val === 'Other – specify') {
                 setIsCustomVaccine(true)
@@ -313,15 +326,13 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
                 setFormData((prev) => ({ ...prev, vaccine_name: val }))
               }
             }}
-            required={!isCustomVaccine}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent bg-white"
+            options={COMMON_VACCINES.map((vaccine) => ({ label: vaccine, value: vaccine }))}
+            placeholder="Select a vaccine"
+            required
+            searchable
+            searchPlaceholder="Search vaccines…"
             disabled={loading}
-          >
-            <option value="">Select a vaccine</option>
-            {COMMON_VACCINES.map((vaccine) => (
-              <option key={vaccine} value={vaccine}>{vaccine}</option>
-            ))}
-          </select>
+          />
 
           {isCustomVaccine && (
             <Input
@@ -339,21 +350,19 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
         {/* Vaccine Type */}
         <div>
-          <label htmlFor="vaccineType" className="block text-sm font-medium text-gray-700 mb-2">
-            Vaccine Type *
-          </label>
-          <select
+          <FormSelect
             id="vaccineType"
+            label="Vaccine Type"
             value={formData.vaccine_type}
-            onChange={(e) => setFormData((prev) => ({ ...prev, vaccine_type: e.target.value as VaccineType }))}
+            onChange={(value) => setFormData((prev) => ({ ...prev, vaccine_type: value as VaccineType }))}
+            options={[
+              { label: 'Core', value: 'core' },
+              { label: 'Non-core', value: 'non-core' },
+              { label: 'Booster', value: 'booster' },
+            ]}
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent bg-white"
             disabled={loading}
-          >
-            <option value="core">Core</option>
-            <option value="non-core">Non-core</option>
-            <option value="booster">Booster</option>
-          </select>
+          />
         </div>
 
         {/* Dates — all three use Calendar */}
@@ -387,7 +396,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
         {/* Clinic & Vet */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label htmlFor="clinic" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="clinic" className="block text-sm font-medium text-white-700 mb-2">
               Clinic Name
             </label>
             <Input
@@ -401,7 +410,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
           </div>
 
           <div>
-            <label htmlFor="vetName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="vetName" className="block text-sm font-medium text-white-700 mb-2">
               Veterinarian Name
             </label>
             <Input
@@ -417,7 +426,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
         {/* Batch Number */}
         <div>
-          <label htmlFor="batchNumber" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="batchNumber" className="block text-sm font-medium text-white-700 mb-2">
             Batch / Lot Number
           </label>
           <Input
@@ -432,7 +441,7 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
 
         {/* Notes */}
         <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="notes" className="block text-sm font-medium text-white-700 mb-2">
             Notes
           </label>
           <textarea
@@ -442,23 +451,8 @@ export function VaccinationForm({ petId, vaccinationId, onSuccess }: Vaccination
             placeholder="Any additional information about the vaccination"
             disabled={loading}
             rows={4}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent"
+            className="w-full px-4 py-2 border border-white-300 rounded-lg focus:ring-2 focus:ring-[#7CA982] focus:border-transparent"
           />
-        </div>
-
-        {/* Verified */}
-        <div className="flex items-center gap-3">
-          <input
-            id="isVerified"
-            type="checkbox"
-            checked={formData.is_verified}
-            onChange={(e) => setFormData((prev) => ({ ...prev, is_verified: e.target.checked }))}
-            disabled={loading}
-            className="w-4 h-4 rounded border-gray-300 text-[#243E36] focus:ring-[#7CA982]"
-          />
-          <label htmlFor="isVerified" className="text-sm font-medium text-gray-700">
-            Verified by veterinarian
-          </label>
         </div>
 
         {/* Buttons */}

@@ -1,122 +1,170 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { motion } from 'motion/react'
+import {
+  Bell,
+  CalendarHeart,
+  CreditCard,
+  Home,
+  LogOut,
+  PawPrint,
+  Settings,
+} from 'lucide-react'
 import { useAuthStore } from '@/lib/store'
+import { ActionSearchProvider, ActionSearchTrigger } from '@/components/navigation/action-search'
+import { NotificationCenter } from '@/components/navigation/notification-center'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
-import { Menu, X, LogOut, Settings, Home, PlusCircle, Syringe, PawPrint } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const items = [
+  { href: '/dashboard', label: 'Today', icon: Home },
+  { href: '/pets', label: 'Pets', icon: PawPrint },
+  { href: '/vaccinations', label: 'Health', icon: CalendarHeart },
+  { href: '/ehealth-card', label: 'Card', icon: CreditCard },
+  { href: '/settings', label: 'More', icon: Settings },
+]
+
+function isActive(pathname: string, href: string) {
+  if (href === '/pets') return pathname === href || pathname.startsWith('/pets/')
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
 
 export function Navigation() {
+  const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuthStore()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
     await logout()
-    router.push('/login')
+    router.replace('/login')
   }
 
-  const navLinks = [
-    { href: '/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/pets', label: 'My Pets', icon: PlusCircle },
-    { href: '/vaccinations', label: 'Vaccinations', icon: Syringe },
-  ]
-
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-[#F1F7ED] border-b border-[#E0EEC6] shadow-sm z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <PawPrint className="w-5 h-5" aria-hidden />
-            <span className="text-xl font-bold text-gray-900">JoyCare</span>
+    <ActionSearchProvider>
+      <header className="glass glass-strong fixed inset-x-0 top-0 z-50 hidden h-20 border-x-0 border-t-0 md:block">
+        <div className="mx-auto flex h-full max-w-7xl items-center gap-6 px-6 lg:px-8">
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5" aria-label="JoyCare home">
+            <span className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              <PawPrint className="size-5" aria-hidden="true" />
+            </span>
+            <span className="text-lg font-semibold tracking-tight">JoyCare</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-2 text-[#243E36] hover:text-[#7CA982] transition-colors"
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </Link>
-            ))}
-          </div>
-
-          {/* User Menu */}
-          <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2"
+          <nav className="flex items-center gap-1" aria-label="Primary navigation">
+            {items.slice(0, 4).map(({ href, label, icon: Icon }) => {
+              const active = isActive(pathname, href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'relative flex min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+                    active && 'text-foreground',
+                  )}
                 >
-                  <PawPrint className="w-5 h-5" aria-hidden />
-                  <span className="hidden sm:inline text-sm font-medium text-gray-700">
-                    {user?.full_name}
-                  </span>
-                </Button>
+                  {active && (
+                    <motion.span
+                      layoutId="desktop-nav-active"
+                      className="absolute inset-0 -z-10 rounded-2xl bg-accent"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <Icon className="size-4" aria-hidden="true" />
+                  {label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2">
+            <ActionSearchTrigger />
+            <NotificationCenter trigger={<Bell className="size-5" />} />
+            <DropdownMenu>
+              <DropdownMenuTrigger className="ios-control flex min-h-11 items-center gap-2 rounded-2xl px-2.5 hover:bg-accent" aria-label="Open profile menu">
+                <span className="grid size-8 place-items-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
+                  {(user?.full_name || user?.email || 'J').slice(0, 1).toUpperCase()}
+                </span>
+                <span className="hidden max-w-36 truncate text-sm font-medium lg:block">
+                  {user?.full_name || 'Pet parent'}
+                </span>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="text-xs text-gray-500 cursor-default">
-                  {user?.email}
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-64 rounded-2xl p-2">
+                <DropdownMenuLabel>
+                  <span className="block truncate">{user?.full_name || 'Pet parent'}</span>
+                  <span className="block truncate text-xs font-normal text-muted-foreground">{user?.email}</span>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </Link>
+                <DropdownMenuItem asChild className="min-h-10 rounded-xl">
+                  <Link href="/settings"><Settings className="size-4" />Settings</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                <DropdownMenuItem onClick={handleLogout} className="min-h-10 rounded-xl text-destructive focus:text-destructive">
+                  <LogOut className="size-4" />Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Mobile Menu Button */}
-            <button
-              className="md:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
           </div>
         </div>
+      </header>
 
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden pb-4 space-y-2">
-            {navLinks.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-2 px-4 py-2 text-[#243E36] hover:bg-[#E0EEC6] rounded-lg"
-                onClick={() => setMobileMenuOpen(false)}
+      <header className="glass glass-strong fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-x-0 border-t-0 px-4 md:hidden">
+        <Link href="/dashboard" className="flex items-center gap-2 text-base font-semibold" aria-label="JoyCare home">
+          <span className="grid size-9 place-items-center rounded-2xl bg-primary text-primary-foreground">
+            <PawPrint className="size-4" />
+          </span>
+          JoyCare
+        </Link>
+        <div className="flex items-center gap-1">
+          <ActionSearchTrigger compact />
+          <NotificationCenter trigger={<Bell className="size-5" />} />
+        </div>
+      </header>
+
+      <nav
+        className="glass glass-strong fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center justify-around rounded-[1.65rem] p-1.5 md:hidden"
+        aria-label="Primary navigation"
+      >
+        {items.map(({ href, label, icon: Icon }) => {
+          const active = isActive(pathname, href)
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? 'page' : undefined}
+              aria-label={label}
+              className={cn(
+                'relative flex min-h-12 items-center justify-center gap-1.5 overflow-hidden rounded-[1.2rem] px-3 text-muted-foreground',
+                active && 'text-primary-foreground',
+              )}
+            >
+              {active && (
+                <motion.span
+                  layoutId="mobile-toolbar-active"
+                  className="absolute inset-0 -z-10 rounded-[1.2rem] bg-primary"
+                  transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                />
+              )}
+              <Icon className="size-5 shrink-0" aria-hidden="true" />
+              <motion.span
+                initial={false}
+                animate={{ width: active ? 'auto' : 0, opacity: active ? 1 : 0 }}
+                className="overflow-hidden whitespace-nowrap text-xs font-semibold"
               >
-                <Icon className="w-4 h-4" />
                 {label}
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    </nav>
+              </motion.span>
+            </Link>
+          )
+        })}
+      </nav>
+    </ActionSearchProvider>
   )
 }

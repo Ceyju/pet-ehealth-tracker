@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -9,12 +10,13 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { AlertCircle, CalendarIcon, Loader2, Upload } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { FormSelect } from '@/components/forms/form-select'
+import type Croppie from 'croppie'
 
 interface PetFormProps {
   petId?: string
@@ -35,7 +37,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
   const [cropOpen, setCropOpen] = useState(false)
   const [rawImageUrl, setRawImageUrl] = useState<string | null>(null)
   const croppieRef = useRef<HTMLDivElement>(null)
-  const croppieInstance = useRef<any>(null)
+  const croppieInstance = useRef<Croppie | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -200,7 +202,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
 
   return (
     <Card className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">
+      <h1 className="text-3xl font-bold text-white-600 mb-8">
         {petId ? 'Edit Pet' : 'Add New Pet'}
       </h1>
 
@@ -241,20 +243,23 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
 
         {/* Photo Upload */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-white-700 mb-2">
             Pet Photo
           </label>
           <div className="flex flex-col items-center gap-3">
             {photoUrl && (
-              <img
+              <Image
                 src={photoUrl}
                 alt="Pet"
+                width={200}
+                height={200}
+                unoptimized
                 className="w-50 h-50 rounded-lg object-cover border-2 border-gray-200"
               />
             )}
             <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#7CA982] transition-colors">
-              <Upload className="w-5 h-5 mr-2 text-gray-600" />
-              <span className="text-sm text-gray-600">
+              <Upload className="w-5 h-5 mr-2 text-white-600" />
+              <span className="text-sm text-white-600">
                 {uploadingPhoto ? 'Uploading...' : photoUrl ? 'Edit photo' : 'Click to upload'}
               </span>
               <input
@@ -271,7 +276,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
         {/* Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-white-700 mb-2">
               Pet Name *
             </label>
             <Input
@@ -286,29 +291,20 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           </div>
 
           <div>
-            <label htmlFor="species" className="block text-sm font-medium text-gray-700 mb-2">
-              Species *
-            </label>
-            <Select
+            <FormSelect
+              id="species"
+              label="Species"
               value={formData.species}
-              onValueChange={(value) => setFormData({ ...formData, species: value })}
+              onChange={(value) => setFormData({ ...formData, species: value })}
+              options={SPECIES_OPTIONS.map((species) => ({ label: species, value: species }))}
+              placeholder="Select species"
+              required
               disabled={loading}
-            >
-              <SelectTrigger id="species" className="w-full">
-                <SelectValue placeholder="Select species" />
-              </SelectTrigger>
-              <SelectContent>
-                {SPECIES_OPTIONS.map((species) => (
-                  <SelectItem key={species} value={species}>
-                    {species}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           <div>
-            <label htmlFor="breed" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="breed" className="block text-sm font-medium text-white-700 mb-2">
               Breed
             </label>
             <Input
@@ -322,7 +318,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-white-700 mb-2">
               Date of Birth
             </label>
             <Popover open={dobOpen} onOpenChange={setDobOpen}>
@@ -364,7 +360,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           </div>
 
           <div>
-            <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="weight" className="block text-sm font-medium text-white-700 mb-2">
               Weight (kg)
             </label>
             <Input
@@ -379,7 +375,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           </div>
 
           <div>
-            <label htmlFor="microchip" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="microchip" className="block text-sm font-medium text-white-700 mb-2">
               Microchip ID
             </label>
             <Input
@@ -394,10 +390,10 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
         </div>
 
         {/* Deworming */}
-        <div className="col-span-1 md:col-span-2 border border-gray-200 rounded-lg p-4 space-y-4">
+        <div className="col-span-1 md:col-span-2 border border-white-200 rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-700">Deworming</p>
+              <p className="text-sm font-medium text-white-700">Deworming</p>
               <p className="text-xs text-gray-500">Has this pet been dewormed?</p>
             </div>
             <Switch
@@ -412,7 +408,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
           {formData.is_dewormed && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white-700 mb-2">
                   Deworming Date
                 </label>
                 <Popover open={dewormingOpen} onOpenChange={setDewormingOpen}>
@@ -453,7 +449,7 @@ export function PetForm({ petId, onSuccess }: PetFormProps) {
                 </Popover>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white-700 mb-2">
                   Clinic / Location
                 </label>
                 <Input

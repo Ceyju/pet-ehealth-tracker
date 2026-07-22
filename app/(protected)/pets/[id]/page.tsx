@@ -1,271 +1,82 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { motion } from 'motion/react'
+import { ArrowLeft, CalendarClock, Edit2, FileHeart, Heart, QrCode, Syringe } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { PlusCircle, Edit2, ArrowLeft, Calendar, Heart, Syringe, QrCode, Clock } from 'lucide-react'
-import { VaccinationCountdown } from '@/components/dashboard/vaccination-countdown'
+import { SmoothTabs } from '@/components/ui/smooth-tabs'
+import { formatHealthDate, vaccinationStatus } from '@/lib/care'
+import type { MedicalRecord, PetHealthProfile, Reminder, VaccinationRecord } from '@/types'
 
-interface Pet {
-  id: string
-  name: string
-  species: string
-  breed: string | null
-  date_of_birth: string | null
-  weight: number | null
-  microchip_id: string | null
-  photo_url: string | null
-}
-
-interface VaccinationPet {
-  id: string
-  name: string
-  species: string
-  breed: string | null
-  photo_url: string | null
-}
-
-interface Vaccination {
-  id: string
-  pet_id: string
-  vaccine_name: string
-  next_due_date: string
-  pet: VaccinationPet | null
-}
-
-type VaccinationRow = Omit<Vaccination, 'pet'> & {
-  pet: VaccinationPet[] | VaccinationPet | null
-}
+type Section = 'overview' | 'vaccinations' | 'records' | 'reminders' | 'timeline'
 
 export default function PetDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const router = useRouter()
-  const { user } = useAuthStore()
-  const [pet, setPet] = useState<Pet | null>(null)
-  const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
+  const user = useAuthStore((state) => state.user)
+  const [pet, setPet] = useState<PetHealthProfile | null>(null)
+  const [vaccinations, setVaccinations] = useState<VaccinationRecord[]>([])
+  const [records, setRecords] = useState<MedicalRecord[]>([])
+  const [reminders, setReminders] = useState<Reminder[]>([])
+  const [section, setSection] = useState<Section>('overview')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.id) return
-
-      try {
-        setLoading(true)
-
-        // Fetch pet
-        const { data: petData, error: petError } = await supabase
-          .from('pets')
-          .select('*')
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .single()
-
-        if (petError) throw petError
-        if (!petData) {
-          setError('Pet not found')
-          return
-        }
-
-        setPet(petData)
-
-        // Fetch vaccinations
-        const { data: vaccData, error: vaccError } = await supabase
-          .from('vaccinations')
-          .select(`
-            id,
-            pet_id,
-            vaccine_name,
-            next_due_date,
-            pet:pets(id, name, species, breed, photo_url)
-          `)
-          .eq('pet_id', id)
-          .order('next_due_date', { ascending: true })
-
-        if (vaccError) throw vaccError
-
-        const normalized: Vaccination[] = ((vaccData ?? []) as VaccinationRow[]).map((v) => ({
-          ...v,
-          pet: Array.isArray(v.pet) ? (v.pet[0] ?? null) : (v.pet ?? null),
-        }))
-        setVaccinations(normalized)
-      } catch (err) {
-        console.error('Error fetching pet details:', err)
-        setError('Failed to load pet details')
-      } finally {
-        setLoading(false)
-      }
+    if (!user?.id) return
+    const load = async () => {
+      const petResult = await supabase.from('pets').select('*').eq('id', id).eq('user_id', user.id).maybeSingle()
+      if (petResult.error || !petResult.data) { setError('Pet not found'); setLoading(false); return }
+      setPet(petResult.data as PetHealthProfile)
+      const [vaccinationResult, recordResult, reminderResult] = await Promise.all([
+        supabase.from('vaccinations').select('id, pet_id, vaccine_name, vaccine_type, date_administered, next_due_date, clinic_name, vet_name').eq('pet_id', id).order('date_administered', { ascending: false }),
+        supabase.from('medical_records').select('id, pet_id, record_type, title, occurred_on, description, provider_name').eq('pet_id', id).order('occurred_on', { ascending: false }),
+        supabase.from('reminders').select('id, pet_id, title, notes, due_at, recurrence, status, channels').eq('pet_id', id).order('due_at'),
+      ])
+      const summary = { id: petResult.data.id, name: petResult.data.name, species: petResult.data.species, breed: petResult.data.breed, photo_url: petResult.data.photo_url }
+      setVaccinations((vaccinationResult.data ?? []).map((item) => ({ ...item, pet: summary })))
+      setRecords(recordResult.data ?? []); setReminders(reminderResult.data ?? []); setLoading(false)
     }
+    void load()
+  }, [id, user?.id])
 
-    fetchData()
-  }, [id, user])
+  const timeline = useMemo(() => [
+    ...vaccinations.map((item) => ({ id: item.id, type: 'Vaccination', title: item.vaccine_name, date: item.date_administered || item.next_due_date || '' })),
+    ...records.map((item) => ({ id: item.id, type: item.record_type.replace('_', ' '), title: item.title, date: item.occurred_on })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [vaccinations, records])
 
-  const calculateAge = (dateOfBirth: string | null) => {
-    if (!dateOfBirth) return 'Unknown'
-    const today = new Date()
-    const birth = new Date(dateOfBirth)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
-    }
-
-    return `${age} years old`
-  }
-
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7CA982]"></div>
-            <p className="mt-4 text-gray-600">Loading pet details...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !pet) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Button
-          variant="outline"
-          onClick={() => router.back()}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <Card className="p-8 text-center">
-          <p className="text-red-600">{error || 'Pet not found'}</p>
-        </Card>
-      </div>
-    )
-  }
+  if (loading) return <div className="grid min-h-96 place-items-center"><div className="size-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" /></div>
+  if (!pet || error) return <div className="page-shell"><section className="surface p-8 text-center text-destructive">{error || 'Pet not found'}</section></div>
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <Button
-        variant="outline"
-        onClick={() => router.back()}
-        className="mb-6"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
-      </Button>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Pet Info */}
-        <div className="lg:col-span-1">
-          <Card className="overflow-hidden">
-            {pet.photo_url && (
-              <div className="h-64 bg-gray-200 overflow-hidden">
-                <img
-                  src={pet.photo_url}
-                  alt={pet.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="p-6">
-              <h1 className="text-3xl font-bold text-gray-900">{pet.name}</h1>
-              <p className="text-gray-600 mt-2">
-                {pet.species}{pet.breed ? ` • ${pet.breed}` : ''}
-              </p>
-
-              <div className="mt-6 space-y-4">
-                {pet.date_of_birth && (
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-gray-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Age</p>
-                      <p className="font-medium text-gray-900">{calculateAge(pet.date_of_birth)}</p>
-                    </div>
-                  </div>
-                )}
-                {pet.weight && (
-                  <div className="flex items-center gap-3">
-                    <Heart className="w-5 h-5 text-gray-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Weight</p>
-                      <p className="font-medium text-gray-900">{pet.weight} kg</p>
-                    </div>
-                  </div>
-                )}
-                {pet.microchip_id && (
-                  <div>
-                    <p className="text-sm text-gray-500">Microchip ID</p>
-                    <p className="font-medium text-gray-900 text-sm">{pet.microchip_id}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6 flex flex-col gap-2">
-                <Link href={`/pets/${pet.id}/edit`} className="block">
-                  <Button className="w-full bg-[#243E36] hover:bg-[#1a2e28] text-white">
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                </Link>
-                <Link href={`/pets/${pet.id}/qr-code`} className="block">
-                  <Button variant="outline" className="w-full">
-                    <QrCode className="w-4 h-4 mr-2" />
-                    QR Code
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Card>
+    <div className="page-shell space-y-6">
+      <Link href="/pets" className="inline-flex min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" />All pets</Link>
+      <section className="surface overflow-hidden">
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-7">
+          <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-3xl bg-secondary text-4xl">{pet.photo_url ? <Image src={pet.photo_url} alt={pet.name} width={96} height={96} className="size-full object-cover" /> : pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}</div>
+          <div className="min-w-0 flex-1"><p className="eyebrow capitalize">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p><h1 className="mt-1 truncate text-3xl font-semibold tracking-tight">{pet.name}</h1><p className="mt-2 text-sm text-muted-foreground">{vaccinations.length} vaccinations · {records.length} records · {reminders.filter((item) => item.status === 'scheduled').length} reminders</p></div>
+          <div className="flex gap-2"><Button asChild variant="outline" className="ios-control"><Link href={`/pets/${pet.id}/qr-code`}><QrCode className="size-4" /><span className="sr-only sm:not-sr-only">Share</span></Link></Button><Button asChild className="ios-control"><Link href={`/pets/${pet.id}/edit`}><Edit2 className="size-4" />Edit</Link></Button></div>
         </div>
+        <div className="overflow-x-auto border-t p-3 sm:px-6"><SmoothTabs id={`pet-${id}`} value={section} onValueChange={(value) => setSection(value as Section)} tabs={[{ value: 'overview', label: 'Overview' }, { value: 'vaccinations', label: 'Vaccinations', count: vaccinations.length }, { value: 'records', label: 'Records', count: records.length }, { value: 'reminders', label: 'Reminders', count: reminders.length }, { value: 'timeline', label: 'Timeline' }]} /></div>
+      </section>
 
-        {/* Right Column - Vaccinations */}
-        <div className="lg:col-span-2">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Vaccinations</h2>
-              <div className="flex gap-2">
-                {vaccinations.length > 0 && (
-                  <Link href={`/pets/${pet.id}/timeline`}>
-                    <Button variant="outline">
-                      <Clock className="w-4 h-4 mr-2" />
-                      Timeline
-                    </Button>
-                  </Link>
-                )}
-                <Link href={`/pets/${pet.id}/vaccinations/new`}>
-                  <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    Add Vaccination
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {vaccinations.length === 0 ? (
-              <div className="text-center py-12">
-                <Syringe className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">No vaccinations recorded yet</p>
-                <Link href={`/pets/${pet.id}/vaccinations/new`}>
-                  <Button>Add Vaccination Record</Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {vaccinations.map((vaccination) => (
-                  <VaccinationCountdown key={vaccination.id} vaccination={vaccination} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      </div>
+      <motion.section key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="surface p-5 sm:p-6">
+        {section === 'overview' && <Overview pet={pet} nextVaccination={vaccinations.find((item) => vaccinationStatus(item.next_due_date) !== 'overdue')} />}
+        {section === 'vaccinations' && <ItemSection icon={Syringe} empty="No vaccinations recorded" action={<Button asChild size="sm"><Link href={`/pets/${id}/vaccinations/new`}>Add vaccination</Link></Button>}>{vaccinations.map((item) => <HealthRow key={item.id} title={item.vaccine_name} meta={`${formatHealthDate(item.date_administered || null)} · Owner reported`} date={formatHealthDate(item.next_due_date)} />)}</ItemSection>}
+        {section === 'records' && <ItemSection icon={FileHeart} empty="No medical records added" action={<Button asChild size="sm"><Link href="/vaccinations?view=records">Add record</Link></Button>}>{records.map((item) => <HealthRow key={item.id} title={item.title} meta={item.provider_name || item.record_type.replace('_', ' ')} date={formatHealthDate(item.occurred_on)} />)}</ItemSection>}
+        {section === 'reminders' && <ItemSection icon={CalendarClock} empty="No reminders scheduled" action={<Button asChild size="sm"><Link href="/vaccinations?view=reminders">Add reminder</Link></Button>}>{reminders.map((item) => <HealthRow key={item.id} title={item.title} meta={`${item.recurrence === 'none' ? 'One time' : item.recurrence} · ${item.status}`} date={new Date(item.due_at).toLocaleString()} />)}</ItemSection>}
+        {section === 'timeline' && <ItemSection icon={Heart} empty="No activity yet">{timeline.map((item) => <HealthRow key={`${item.type}-${item.id}`} title={item.title} meta={item.type} date={formatHealthDate(item.date)} />)}</ItemSection>}
+      </motion.section>
     </div>
   )
 }
+
+function Overview({ pet, nextVaccination }: { pet: PetHealthProfile; nextVaccination?: VaccinationRecord }) {
+  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><OverviewFact label="Birthday" value={formatHealthDate(pet.date_of_birth)} /><OverviewFact label="Weight" value={pet.weight ? `${pet.weight} kg` : 'Not set'} /><OverviewFact label="Microchip" value={pet.microchip_id || 'Not set'} /><OverviewFact label="Next care" value={nextVaccination ? `${nextVaccination.vaccine_name} · ${formatHealthDate(nextVaccination.next_due_date)}` : 'Nothing scheduled'} /></div>
+}
+function OverviewFact({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl bg-secondary/60 p-4"><p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-1 break-words text-sm font-semibold">{value}</p></div> }
+function ItemSection({ icon: Icon, empty, action, children }: { icon: typeof Heart; empty: string; action?: React.ReactNode; children: React.ReactNode }) { const has = Array.isArray(children) ? children.length > 0 : Boolean(children); return <div><div className="mb-3 flex justify-end">{action}</div>{has ? <div className="divide-y">{children}</div> : <div className="grid place-items-center py-14 text-center"><Icon className="mb-3 size-8 text-muted-foreground" /><p className="text-sm text-muted-foreground">{empty}</p></div>}</div> }
+function HealthRow({ title, meta, date }: { title: string; meta: string; date: string }) { return <div className="flex min-h-18 items-center gap-3 py-3"><div className="min-w-0 flex-1"><p className="truncate font-medium">{title}</p><p className="truncate text-sm capitalize text-muted-foreground">{meta}</p></div><p className="max-w-36 text-right text-sm text-muted-foreground">{date}</p></div> }

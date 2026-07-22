@@ -1,261 +1,76 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
+import { motion } from 'motion/react'
+import { ArrowRight, CalendarClock, FileHeart, PawPrint, Plus, Syringe } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/store'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, Calendar, Loader2 } from 'lucide-react'
-import { DashboardStats } from '@/components/dashboard/stats'
-import { VaccinationCountdown } from '@/components/dashboard/vaccination-countdown'
 import { EHealthCarousel } from '@/components/ehealth-carousel'
 import type { EHealthPet, EHealthVaccination } from '@/components/ehealth-card'
-import Image from 'next/image'
-import { Pet, Vaccination } from '@/types'
-
-
-const speciesIconMap: Record<string, string> = {
-  dog: "🐶",
-  cat: "🐱",
-}
-
-const getPetIcon = (species?: string) =>
-  speciesIconMap[(species || "").toLowerCase()] ?? "🐾"
+import { daysUntil, formatHealthDate, vaccinationStatus } from '@/lib/care'
+import type { PetSummary, Reminder, VaccinationRecord } from '@/types'
 
 export default function DashboardPage() {
-  const { user } = useAuthStore()
-  const [pets, setPets] = useState<Pet[]>([])
-  const [ehealthPets, setEhealthPets] = useState<EHealthPet[]>([])
-  const [upcomingVaccinations, setUpcomingVaccinations] = useState<Vaccination[]>([])
+  const user = useAuthStore((state) => state.user)
+  const [pets, setPets] = useState<PetSummary[]>([])
+  const [cards, setCards] = useState<EHealthPet[]>([])
+  const [vaccinations, setVaccinations] = useState<VaccinationRecord[]>([])
+  const [reminders, setReminders] = useState<Reminder[]>([])
+  const [recentRecordCount, setRecentRecordCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user?.id) {
-        setLoading(false)
-        return
-      }
+    if (!user?.id) return
+    let cancelled = false
+    void (async () => {
+      const { data: petRows } = await supabase.from('pets').select('id, user_id, name, species, breed, photo_url, microchip_id, is_dewormed, deworming_date, deworming_location').eq('user_id', user.id).order('created_at', { ascending: false })
+      if (cancelled) return
+      const list = petRows ?? []
+      const ids = list.map((pet) => pet.id)
+      if (!ids.length) { setLoading(false); return }
+      const [vaccinationResult, reminderResult, recordResult] = await Promise.all([
+        supabase.from('vaccinations').select('id, pet_id, vaccine_name, vaccine_type, date_administered, next_due_date, clinic_name, vet_name').in('pet_id', ids).order('next_due_date'),
+        supabase.from('reminders').select('id, pet_id, title, notes, due_at, recurrence, status, channels').eq('user_id', user.id).eq('status', 'scheduled').order('due_at').limit(5),
+        supabase.from('medical_records').select('id', { count: 'exact', head: true }).in('pet_id', ids),
+      ])
+      if (cancelled) return
+      const summary: PetSummary[] = list.map((pet) => ({ id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, photo_url: pet.photo_url }))
+      const petMap = new Map(summary.map((pet) => [pet.id, pet]))
+      const vaccines: VaccinationRecord[] = (vaccinationResult.data ?? []).map((item) => ({ ...item, pet: petMap.get(item.pet_id) ?? null }))
+      const cardVaccines: Record<string, EHealthVaccination[]> = {}
+      for (const item of vaccinationResult.data ?? []) (cardVaccines[item.pet_id] ||= []).push(item)
+      setPets(summary); setVaccinations(vaccines); setReminders(reminderResult.data ?? []); setRecentRecordCount(recordResult.count ?? 0)
+      setCards(list.map((pet) => ({ id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, microchip_id: pet.microchip_id, photo_url: pet.photo_url, vaccinations: cardVaccines[pet.id] ?? [], is_dewormed: pet.is_dewormed, deworming_date: pet.deworming_date, deworming_location: pet.deworming_location })))
+      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [user?.id])
 
-      try {
-        setLoading(true)
-        setError(null)
+  const nextCare = useMemo(() => vaccinations.filter((item) => item.next_due_date).sort((a, b) => new Date(a.next_due_date!).getTime() - new Date(b.next_due_date!).getTime()).slice(0, 4), [vaccinations])
+  const overdue = vaccinations.filter((item) => vaccinationStatus(item.next_due_date) === 'overdue').length
 
-        // Fetch pets
-        const { data: petsData, error: petsError } = await supabase
-          .from('pets')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (petsError) throw petsError
-        setPets(petsData || [])
-
-        const petIds = (petsData || [])
-          .map((p) => p.id)
-          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-
-        if (petIds.length === 0) {
-          setUpcomingVaccinations([])
-          setEhealthPets([])
-          return
-        }
-
-        // Fetch ALL vaccinations with full fields for eHealth card
-        const { data: vaccData, error: vaccError } = await supabase
-          .from('vaccinations')
-          .select('id, pet_id, vaccine_name, next_due_date, date_administered, clinic_name, vet_name')
-          .in('pet_id', petIds)
-          .order('date_administered', { ascending: false })
-
-        if (vaccError) throw vaccError
-
-        // Build eHealth pets structure
-        const vaccByPet: Record<string, EHealthVaccination[]> = {}
-        for (const v of vaccData ?? []) {
-          if (!vaccByPet[v.pet_id]) vaccByPet[v.pet_id] = []
-          vaccByPet[v.pet_id].push({
-            id: v.id,
-            vaccine_name: v.vaccine_name,
-            next_due_date: v.next_due_date,
-            date_administered: v.date_administered,
-            clinic_name: v.clinic_name,
-            vet_name: v.vet_name,
-          })
-        }
-        setEhealthPets(
-          (petsData ?? []).map((p) => ({
-            id: p.id,
-            name: p.name,
-            species: p.species,
-            breed: p.breed,
-            microchip_id: p.microchip_id ?? null,
-            photo_url: p.photo_url,
-            vaccinations: vaccByPet[p.id] ?? [],
-            is_dewormed: p.is_dewormed,
-            deworming_date: p.deworming_date,
-            deworming_location: p.deworming_location,
-          }))
-        )
-
-        // Upcoming vaccinations (next 90 days) derived from the same fetch
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const in90Days = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-
-        const upcoming: Vaccination[] = (vaccData ?? [])
-          .filter((v) => {
-            if (!v.next_due_date) return false
-            const due = new Date(v.next_due_date)
-            return due >= today && due <= in90Days
-          })
-          .sort((a, b) => new Date(a.next_due_date).getTime() - new Date(b.next_due_date).getTime())
-          .slice(0, 5)
-          .map((v) => {
-            const petInfo = (petsData ?? []).find((p) => p.id === v.pet_id) ?? null
-            return {
-              id: v.id,
-              pet_id: v.pet_id,
-              vaccine_name: v.vaccine_name,
-              next_due_date: v.next_due_date,
-              pet: petInfo
-                ? { id: petInfo.id, name: petInfo.name, species: petInfo.species, breed: petInfo.breed ?? null, photo_url: petInfo.photo_url ?? null }
-                : null,
-            }
-          })
-        setUpcomingVaccinations(upcoming)
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err)
-        setError('Failed to load dashboard data')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchDashboardData()
-  }, [user])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-100">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#7CA982] mx-auto" />
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
+  if (loading) return <div className="grid min-h-96 place-items-center"><div className="size-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" /></div>
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back, {user?.full_name}!</p>
-      </div>
+    <div className="page-shell space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">{new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}</p><h1 className="page-heading mt-1">Good to see you{user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}.</h1><p className="mt-2 text-sm text-muted-foreground">Here is what needs attention across your pets.</p></div><Button asChild className="ios-control gap-2"><Link href="/vaccinations"><Plus className="size-4" />Add health item</Link></Button></header>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
-          <span className="text-sm text-red-600">{error}</span>
+      <section className="grid gap-3 sm:grid-cols-3"><TodayMetric icon={PawPrint} label="Pets" value={pets.length} copy="in your care" /><TodayMetric icon={CalendarClock} label="Upcoming" value={nextCare.filter((item) => vaccinationStatus(item.next_due_date) !== 'overdue').length + reminders.length} copy="care items" /><TodayMetric icon={Syringe} label="Overdue" value={overdue} copy={overdue ? 'needs attention' : 'all caught up'} danger={overdue > 0} /></section>
+
+      {!pets.length ? <section className="surface grid min-h-80 place-items-center px-6 text-center"><div><span className="mx-auto grid size-16 place-items-center rounded-3xl bg-secondary"><PawPrint className="size-7 text-primary" /></span><h2 className="mt-5 text-xl font-semibold">Welcome to JoyCare</h2><p className="mt-2 max-w-md text-sm text-muted-foreground">Add your first pet to begin their owner-maintained health record and care timeline.</p><Button asChild className="ios-control mt-6"><Link href="/pets/new"><Plus className="size-4" />Add first pet</Link></Button></div></section> : (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,.75fr)]">
+          <section className="surface overflow-hidden p-4 sm:p-6"><div className="mb-5 flex items-center justify-between"><div><p className="eyebrow">Wallet-ready</p><h2 className="mt-1 text-xl font-semibold">eHealth Card</h2></div><Button asChild variant="ghost" className="rounded-2xl"><Link href="/ehealth-card">Secure sharing<ArrowRight className="size-4" /></Link></Button></div><EHealthCarousel pets={cards} /></section>
+          <div className="space-y-6">
+            <section className="surface p-4 sm:p-5"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Next care</h2><Link href="/vaccinations" className="text-sm font-medium text-primary">View all</Link></div>{nextCare.length ? <div className="divide-y">{nextCare.map((item) => { const days = daysUntil(item.next_due_date); return <Link key={item.id} href={`/pets/${item.pet_id}`} className="flex min-h-16 items-center gap-3 py-2"><span className={`size-2.5 rounded-full ${days !== null && days < 0 ? 'bg-red-500' : days !== null && days <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.vaccine_name}</p><p className="truncate text-xs text-muted-foreground">{item.pet?.name}</p></div><p className="text-xs text-muted-foreground">{formatHealthDate(item.next_due_date, { month: 'short', day: 'numeric' })}</p></Link>})}</div> : <p className="py-8 text-center text-sm text-muted-foreground">Nothing scheduled yet</p>}</section>
+            <section className="surface p-4 sm:p-5"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Your pets</h2><Link href="/pets" className="text-sm font-medium text-primary">Manage</Link></div><div className="flex gap-3 overflow-x-auto pb-1">{pets.map((pet) => <Link key={pet.id} href={`/pets/${pet.id}`} className="min-w-24 rounded-2xl p-2 text-center hover:bg-accent"><span className="mx-auto grid size-14 place-items-center overflow-hidden rounded-2xl bg-secondary text-2xl">{pet.photo_url ? <Image src={pet.photo_url} alt={pet.name} width={56} height={56} className="size-full object-cover" /> : pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}</span><span className="mt-2 block truncate text-sm font-medium">{pet.name}</span></Link>)}</div></section>
+            <section className="surface flex items-center gap-4 p-4 sm:p-5"><span className="grid size-11 place-items-center rounded-2xl bg-secondary"><FileHeart className="size-5 text-primary" /></span><div className="flex-1"><p className="font-medium">{recentRecordCount} medical records</p><p className="text-xs text-muted-foreground">Owner-maintained documents and notes</p></div><Button asChild variant="ghost" size="icon" className="rounded-xl"><Link href="/vaccinations?view=records" aria-label="View medical records"><ArrowRight className="size-4" /></Link></Button></section>
+          </div>
         </div>
       )}
-
-      {/* Stats */}
-      <DashboardStats petsCount={pets.length} vaccinationsCount={upcomingVaccinations.length} />
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-        {/* Left Column - eHealth Card */}
-        <div className="lg:col-span-2">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">eHealth Card</h2>
-              <Link href="/ehealth-card">
-                <Button variant="outline" size="sm">Full View</Button>
-              </Link>
-            </div>
-            {pets.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">No pets registered yet.</p>
-                <Link href="/pets/new">
-                  <Button className="bg-[#243E36] hover:bg-[#1a2e28] text-white">Add your first pet</Button>
-                </Link>
-              </div>
-            ) : (
-              <EHealthCarousel pets={ehealthPets} userId={user?.id ?? ''} />
-            )}
-          </Card>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Your Pets */}
-          {pets.length > 0 && (
-            <Card className="p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900">Your Pets</h3>
-                <Link href="/pets">
-                  <Button variant="ghost" size="sm">View All</Button>
-                </Link>
-              </div>
-              <div className="space-y-2">
-                {pets.slice(0, 3).map((pet) => (
-                  <Link key={pet.id} href={`/pets/${pet.id}`} className="block">
-                    <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
-                        {pet.photo_url ? (
-                          <Image
-                            src={pet.photo_url}
-                            alt={`${pet.name} picture`}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg leading-none" aria-hidden="true">
-                            {getPetIcon(pet.species)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900 leading-tight">{pet.name}</p>
-                        <p className="text-sm text-gray-600 leading-tight">
-                          {pet.species}{pet.breed ? ` - ${pet.breed}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Upcoming Vaccinations */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Upcoming Vaccinations</h3>
-              <Link href="/vaccinations">
-                <Button variant="outline" size="sm">View All</Button>
-              </Link>
-            </div>
-            {upcomingVaccinations.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">No upcoming vaccinations in the next 90 days</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {upcomingVaccinations.map((vaccination) => (
-                  <VaccinationCountdown key={vaccination.id} vaccination={vaccination} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      </div>
     </div>
   )
 }
+
+function TodayMetric({ icon: Icon, label, value, copy, danger }: { icon: typeof PawPrint; label: string; value: number; copy: string; danger?: boolean }) { return <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="surface flex items-center gap-3 p-4"><span className={`grid size-11 place-items-center rounded-2xl ${danger ? 'bg-red-500/10 text-red-600' : 'bg-secondary text-primary'}`}><Icon className="size-5" /></span><div><p className="text-xs font-medium text-muted-foreground">{label}</p><p className={`text-xl font-semibold ${danger ? 'text-red-600' : ''}`}>{value} <span className="text-xs font-normal text-muted-foreground">{copy}</span></p></div></motion.div> }

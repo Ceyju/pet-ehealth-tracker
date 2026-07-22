@@ -1,55 +1,25 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title: 'JoyCare - Pet Health Digital Tracker',
-  description: 'Track your pet\'s vaccinations, medical records, and health appointments in one place.',
-  generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
+  title: { default: 'JoyCare', template: '%s · JoyCare' },
+  description: 'A calm, owner-maintained home for your pet’s health records and care reminders.',
+  applicationName: 'JoyCare',
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className="font-sans antialiased"
+        className="font-sans"
         style={{
-          backgroundImage: "url('/src/bg.gif')",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
+          ['--font-system' as string]:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif",
         }}
       >
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
         <Analytics />
       </body>
     </html>
