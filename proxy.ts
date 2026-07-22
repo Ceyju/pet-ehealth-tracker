@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 
 const protectedPrefixes = ['/dashboard', '/pets', '/vaccinations', '/ehealth-card', '/settings']
-const authPrefixes = ['/login', '/signup']
+const authPrefixes = ['/login', '/signup', '/forgot-password']
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
